@@ -1,0 +1,12 @@
+# Solr synonyms (add domain-specific ones as needed)
+# Format: term1, term2, term3
+# Or: term1 => term2
+
+# Auth synonyms
+auth, authentication, authorize
+
+# Payment synonyms
+payment, billing, charge
+
+# Search synonyms
+search, query, find, lookup

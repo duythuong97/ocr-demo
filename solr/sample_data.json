@@ -1,0 +1,348 @@
+[
+  {
+    "id": "src-001",
+    "title": "authentication.py",
+    "content": "import jwt\nimport hashlib\nfrom datetime import datetime, timedelta\n\nSECRET_KEY = 'your-secret-key'\n\ndef generate_token(user_id: str, role: str = 'user') -> str:\n    \"\"\"Generate a JWT token for the given user.\"\"\"\n    payload = {\n        'sub': user_id,\n        'role': role,\n        'exp': datetime.utcnow() + timedelta(hours=24),\n        'iat': datetime.utcnow()\n    }\n    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')\n\ndef verify_token(token: str) -> dict:\n    \"\"\"Verify and decode a JWT token. Raises jwt.ExpiredSignatureError if expired.\"\"\"\n    return jwt.decode(token, SECRET_KEY, algorithms=['HS256'])\n\ndef hash_password(password: str) -> str:\n    return hashlib.sha256(password.encode()).hexdigest()\n",
+    "language": "en",
+    "file_type": "py",
+    "file_path": "backend/auth/authentication.py",
+    "author": "alice",
+    "repository": "main-app",
+    "last_modified": "2025-12-10T08:30:00Z",
+    "tags": [
+      "auth",
+      "jwt",
+      "security"
+    ],
+    "source_code_content": "import jwt\nimport hashlib\nfrom datetime import datetime, timedelta\n\nSECRET_KEY = 'your-secret-key'\n\ndef generate_token(user_id: str, role: str = 'user') -> str:\n    \"\"\"Generate a JWT token for the given user.\"\"\"\n    payload = {\n        'sub': user_id,\n        'role': role,\n        'exp': datetime.utcnow() + timedelta(hours=24),\n        'iat': datetime.utcnow()\n    }\n    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')\n\ndef verify_token(token: str) -> dict:\n    \"\"\"Verify and decode a JWT token. Raises jwt.ExpiredSignatureError if expired.\"\"\"\n    return jwt.decode(token, SECRET_KEY, algorithms=['HS256'])\n\ndef hash_password(password: str) -> str:\n    return hashlib.sha256(password.encode()).hexdigest()\n"
+  },
+  {
+    "id": "src-002",
+    "title": "payment_service.py",
+    "content": "from decimal import Decimal\nimport stripe\n\nstripe.api_key = 'sk_test_...'\n\ndef charge_customer(customer_id: str, amount: Decimal, currency: str = 'usd') -> dict:\n    \"\"\"Charge a customer using Stripe. Returns the charge object.\"\"\"\n    try:\n        charge = stripe.Charge.create(\n            amount=int(amount * 100),\n            currency=currency,\n            customer=customer_id,\n            description='Invoice payment'\n        )\n        return {'status': 'success', 'charge_id': charge.id}\n    except stripe.error.CardError as e:\n        return {'status': 'error', 'message': str(e)}\n\ndef refund_charge(charge_id: str) -> bool:\n    \"\"\"Refund a previous charge by charge_id.\"\"\"\n    stripe.Refund.create(charge=charge_id)\n    return True\n",
+    "language": "en",
+    "file_type": "py",
+    "file_path": "backend/payments/payment_service.py",
+    "author": "bob",
+    "repository": "main-app",
+    "last_modified": "2025-12-15T14:20:00Z",
+    "tags": [
+      "payment",
+      "stripe",
+      "billing"
+    ],
+    "source_code_content": "from decimal import Decimal\nimport stripe\n\nstripe.api_key = 'sk_test_...'\n\ndef charge_customer(customer_id: str, amount: Decimal, currency: str = 'usd') -> dict:\n    \"\"\"Charge a customer using Stripe. Returns the charge object.\"\"\"\n    try:\n        charge = stripe.Charge.create(\n            amount=int(amount * 100),\n            currency=currency,\n            customer=customer_id,\n            description='Invoice payment'\n        )\n        return {'status': 'success', 'charge_id': charge.id}\n    except stripe.error.CardError as e:\n        return {'status': 'error', 'message': str(e)}\n\ndef refund_charge(charge_id: str) -> bool:\n    \"\"\"Refund a previous charge by charge_id.\"\"\"\n    stripe.Refund.create(charge=charge_id)\n    return True\n"
+  },
+  {
+    "id": "src-003",
+    "title": "database.ts",
+    "content": "import { Pool } from 'pg';\n\nconst pool = new Pool({\n  host: process.env.DB_HOST ?? 'localhost',\n  port: parseInt(process.env.DB_PORT ?? '5432'),\n  database: process.env.DB_NAME ?? 'appdb',\n  user: process.env.DB_USER ?? 'postgres',\n  password: process.env.DB_PASSWORD,\n  max: 20,\n  idleTimeoutMillis: 30000,\n});\n\nexport async function query<T>(sql: string, params?: unknown[]): Promise<T[]> {\n  const client = await pool.connect();\n  try {\n    const result = await client.query(sql, params);\n    return result.rows as T[];\n  } finally {\n    client.release();\n  }\n}\n\nexport async function transaction(fn: (client: any) => Promise<void>) {\n  const client = await pool.connect();\n  try {\n    await client.query('BEGIN');\n    await fn(client);\n    await client.query('COMMIT');\n  } catch (err) {\n    await client.query('ROLLBACK');\n    throw err;\n  } finally {\n    client.release();\n  }\n}\n",
+    "language": "en",
+    "file_type": "ts",
+    "file_path": "frontend/lib/database.ts",
+    "author": "alice",
+    "repository": "frontend-app",
+    "last_modified": "2025-11-20T09:00:00Z",
+    "tags": [
+      "database",
+      "postgresql",
+      "typescript"
+    ],
+    "source_code_content": "import { Pool } from 'pg';\n\nconst pool = new Pool({\n  host: process.env.DB_HOST ?? 'localhost',\n  port: parseInt(process.env.DB_PORT ?? '5432'),\n  database: process.env.DB_NAME ?? 'appdb',\n  user: process.env.DB_USER ?? 'postgres',\n  password: process.env.DB_PASSWORD,\n  max: 20,\n  idleTimeoutMillis: 30000,\n});\n\nexport async function query<T>(sql: string, params?: unknown[]): Promise<T[]> {\n  const client = await pool.connect();\n  try {\n    const result = await client.query(sql, params);\n    return result.rows as T[];\n  } finally {\n    client.release();\n  }\n}\n\nexport async function transaction(fn: (client: any) => Promise<void>) {\n  const client = await pool.connect();\n  try {\n    await client.query('BEGIN');\n    await fn(client);\n    await client.query('COMMIT');\n  } catch (err) {\n    await client.query('ROLLBACK');\n    throw err;\n  } finally {\n    client.release();\n  }\n}\n"
+  },
+  {
+    "id": "src-004",
+    "title": "SearchService.java",
+    "content": "package com.company.search;\n\nimport org.apache.solr.client.solrj.SolrClient;\nimport org.apache.solr.client.solrj.SolrQuery;\nimport org.apache.solr.client.solrj.response.QueryResponse;\n\npublic class SearchService {\n    private final SolrClient solrClient;\n\n    public SearchService(SolrClient solrClient) {\n        this.solrClient = solrClient;\n    }\n\n    public QueryResponse search(String query, int rows, int start) throws Exception {\n        SolrQuery solrQuery = new SolrQuery();\n        solrQuery.setQuery(query);\n        solrQuery.setRows(rows);\n        solrQuery.setStart(start);\n        solrQuery.setHighlight(true);\n        solrQuery.addHighlightField(\"content\");\n        solrQuery.addHighlightField(\"title\");\n        solrQuery.set(\"defType\", \"edismax\");\n        solrQuery.set(\"qf\", \"title^5 content^1\");\n        return solrClient.query(solrQuery);\n    }\n}\n",
+    "language": "en",
+    "file_type": "java",
+    "file_path": "src/main/java/com/company/search/SearchService.java",
+    "author": "charlie",
+    "repository": "search-service",
+    "last_modified": "2025-10-05T11:15:00Z",
+    "tags": [
+      "solr",
+      "search",
+      "java"
+    ],
+    "source_code_content": "package com.company.search;\n\nimport org.apache.solr.client.solrj.SolrClient;\nimport org.apache.solr.client.solrj.SolrQuery;\nimport org.apache.solr.client.solrj.response.QueryResponse;\n\npublic class SearchService {\n    private final SolrClient solrClient;\n\n    public SearchService(SolrClient solrClient) {\n        this.solrClient = solrClient;\n    }\n\n    public QueryResponse search(String query, int rows, int start) throws Exception {\n        SolrQuery solrQuery = new SolrQuery();\n        solrQuery.setQuery(query);\n        solrQuery.setRows(rows);\n        solrQuery.setStart(start);\n        solrQuery.setHighlight(true);\n        solrQuery.addHighlightField(\"content\");\n        solrQuery.addHighlightField(\"title\");\n        solrQuery.set(\"defType\", \"edismax\");\n        solrQuery.set(\"qf\", \"title^5 content^1\");\n        return solrClient.query(solrQuery);\n    }\n}\n"
+  },
+  {
+    "id": "src-005",
+    "title": "xác thực người dùng - user_auth.py",
+    "content": "# Module xác thực người dùng bằng JWT\nimport jwt\nfrom fastapi import HTTPException, Depends\nfrom fastapi.security import OAuth2PasswordBearer\n\noauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')\n\ndef xac_thuc_token(token: str = Depends(oauth2_scheme)):\n    \"\"\"Xác thực JWT token và trả về thông tin người dùng.\"\"\"\n    try:\n        payload = jwt.decode(token, 'secret', algorithms=['HS256'])\n        user_id = payload.get('sub')\n        if user_id is None:\n            raise HTTPException(status_code=401, detail='Token không hợp lệ')\n        return user_id\n    except jwt.ExpiredSignatureError:\n        raise HTTPException(status_code=401, detail='Token đã hết hạn')\n    except jwt.JWTError:\n        raise HTTPException(status_code=401, detail='Lỗi xác thực')\n\ndef kiem_tra_quyen(user_id: str, required_role: str) -> bool:\n    \"\"\"Kiểm tra quyền truy cập của người dùng.\"\"\"\n    # TODO: lấy role từ database\n    return True\n",
+    "language": "vi",
+    "file_type": "py",
+    "file_path": "services/auth/user_auth.py",
+    "author": "nguyen_van_a",
+    "repository": "vn-backend",
+    "last_modified": "2025-12-01T07:45:00Z",
+    "tags": [
+      "auth",
+      "fastapi",
+      "jwt"
+    ],
+    "source_code_content": "# Module xác thực người dùng bằng JWT\nimport jwt\nfrom fastapi import HTTPException, Depends\nfrom fastapi.security import OAuth2PasswordBearer\n\noauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')\n\ndef xac_thuc_token(token: str = Depends(oauth2_scheme)):\n    \"\"\"Xác thực JWT token và trả về thông tin người dùng.\"\"\"\n    try:\n        payload = jwt.decode(token, 'secret', algorithms=['HS256'])\n        user_id = payload.get('sub')\n        if user_id is None:\n            raise HTTPException(status_code=401, detail='Token không hợp lệ')\n        return user_id\n    except jwt.ExpiredSignatureError:\n        raise HTTPException(status_code=401, detail='Token đã hết hạn')\n    except jwt.JWTError:\n        raise HTTPException(status_code=401, detail='Lỗi xác thực')\n\ndef kiem_tra_quyen(user_id: str, required_role: str) -> bool:\n    \"\"\"Kiểm tra quyền truy cập của người dùng.\"\"\"\n    # TODO: lấy role từ database\n    return True\n"
+  },
+  {
+    "id": "src-006",
+    "title": "ユーザー管理.py",
+    "content": "# ユーザー管理モジュール\nfrom typing import Optional\nfrom dataclasses import dataclass\n\n@dataclass\nclass User:\n    user_id: str\n    username: str\n    email: str\n    role: str = 'user'\n    is_active: bool = True\n\nclass UserRepository:\n    def __init__(self, db_connection):\n        self.db = db_connection\n\n    def get_user_by_id(self, user_id: str) -> Optional[User]:\n        \"\"\"IDでユーザーを取得する\"\"\"\n        row = self.db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()\n        if row is None:\n            return None\n        return User(user_id=row['id'], username=row['username'], email=row['email'])\n\n    def create_user(self, username: str, email: str, password_hash: str) -> User:\n        \"\"\"新しいユーザーを作成する\"\"\"\n        user_id = self.db.execute(\n            'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',\n            (username, email, password_hash)\n        ).lastrowid\n        return User(user_id=str(user_id), username=username, email=email)\n",
+    "language": "ja",
+    "file_type": "py",
+    "file_path": "modules/user_management/user_repository.py",
+    "author": "tanaka_kenji",
+    "repository": "jp-backend",
+    "last_modified": "2025-11-11T03:20:00Z",
+    "tags": [
+      "user",
+      "database",
+      "python"
+    ],
+    "source_code_content": "# ユーザー管理モジュール\nfrom typing import Optional\nfrom dataclasses import dataclass\n\n@dataclass\nclass User:\n    user_id: str\n    username: str\n    email: str\n    role: str = 'user'\n    is_active: bool = True\n\nclass UserRepository:\n    def __init__(self, db_connection):\n        self.db = db_connection\n\n    def get_user_by_id(self, user_id: str) -> Optional[User]:\n        \"\"\"IDでユーザーを取得する\"\"\"\n        row = self.db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()\n        if row is None:\n            return None\n        return User(user_id=row['id'], username=row['username'], email=row['email'])\n\n    def create_user(self, username: str, email: str, password_hash: str) -> User:\n        \"\"\"新しいユーザーを作成する\"\"\"\n        user_id = self.db.execute(\n            'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',\n            (username, email, password_hash)\n        ).lastrowid\n        return User(user_id=str(user_id), username=username, email=email)\n"
+  },
+  {
+    "id": "src-007",
+    "title": "api_gateway.go",
+    "content": "package main\n\nimport (\n\t\"encoding/json\"\n\t\"log\"\n\t\"net/http\"\n\t\"time\"\n\n\t\"github.com/gorilla/mux\"\n)\n\ntype Response struct {\n\tStatus  int         `json:\"status\"`\n\tData    interface{} `json:\"data\"`\n\tMessage string      `json:\"message\"`\n}\n\nfunc authMiddleware(next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\ttoken := r.Header.Get(\"Authorization\")\n\t\tif token == \"\" {\n\t\t\tw.WriteHeader(http.StatusUnauthorized)\n\t\t\tjson.NewEncoder(w).Encode(Response{Status: 401, Message: \"Unauthorized\"})\n\t\t\treturn\n\t\t}\n\t\tnext.ServeHTTP(w, r)\n\t})\n}\n\nfunc main() {\n\tr := mux.NewRouter()\n\tr.Use(authMiddleware)\n\tr.HandleFunc(\"/api/health\", func(w http.ResponseWriter, r *http.Request) {\n\t\tjson.NewEncoder(w).Encode(Response{Status: 200, Data: map[string]string{\"time\": time.Now().String()}})\n\t})\n\tlog.Fatal(http.ListenAndServe(\":8080\", r))\n}\n",
+    "language": "en",
+    "file_type": "go",
+    "file_path": "gateway/api_gateway.go",
+    "author": "bob",
+    "repository": "microservices",
+    "last_modified": "2025-09-30T16:40:00Z",
+    "tags": [
+      "gateway",
+      "go",
+      "api",
+      "middleware"
+    ],
+    "source_code_content": "package main\n\nimport (\n\t\"encoding/json\"\n\t\"log\"\n\t\"net/http\"\n\t\"time\"\n\n\t\"github.com/gorilla/mux\"\n)\n\ntype Response struct {\n\tStatus  int         `json:\"status\"`\n\tData    interface{} `json:\"data\"`\n\tMessage string      `json:\"message\"`\n}\n\nfunc authMiddleware(next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\ttoken := r.Header.Get(\"Authorization\")\n\t\tif token == \"\" {\n\t\t\tw.WriteHeader(http.StatusUnauthorized)\n\t\t\tjson.NewEncoder(w).Encode(Response{Status: 401, Message: \"Unauthorized\"})\n\t\t\treturn\n\t\t}\n\t\tnext.ServeHTTP(w, r)\n\t})\n}\n\nfunc main() {\n\tr := mux.NewRouter()\n\tr.Use(authMiddleware)\n\tr.HandleFunc(\"/api/health\", func(w http.ResponseWriter, r *http.Request) {\n\t\tjson.NewEncoder(w).Encode(Response{Status: 200, Data: map[string]string{\"time\": time.Now().String()}})\n\t})\n\tlog.Fatal(http.ListenAndServe(\":8080\", r))\n}\n"
+  },
+  {
+    "id": "src-008",
+    "title": "index.html",
+    "content": "<!DOCTYPE html>\n<html lang='vi'>\n<head>\n  <meta charset='UTF-8'/>\n  <title>Trang chủ - Hệ thống quản lý</title>\n  <link rel='stylesheet' href='/static/style.css'/>\n</head>\n<body>\n  <header class='site-header'>\n    <nav>\n      <a href='/'>Trang chủ</a>\n      <a href='/dashboard'>Bảng điều khiển</a>\n      <a href='/settings'>Cài đặt</a>\n    </nav>\n  </header>\n  <main id='content'>\n    <h1>Chào mừng đến hệ thống quản lý</h1>\n    <p>Vui lòng đăng nhập để tiếp tục.</p>\n    <form action='/login' method='POST'>\n      <input type='text' name='username' placeholder='Tên đăng nhập'/>\n      <input type='password' name='password' placeholder='Mật khẩu'/>\n      <button type='submit'>Đăng nhập</button>\n    </form>\n  </main>\n</body>\n</html>\n",
+    "language": "vi",
+    "file_type": "html",
+    "file_path": "frontend/templates/index.html",
+    "author": "tran_thi_b",
+    "repository": "vn-frontend",
+    "last_modified": "2026-01-10T08:00:00Z",
+    "tags": [
+      "html",
+      "frontend",
+      "login"
+    ],
+    "source_code_content": "<!DOCTYPE html>\n<html lang='vi'>\n<head>\n  <meta charset='UTF-8'/>\n  <title>Trang chủ - Hệ thống quản lý</title>\n  <link rel='stylesheet' href='/static/style.css'/>\n</head>\n<body>\n  <header class='site-header'>\n    <nav>\n      <a href='/'>Trang chủ</a>\n      <a href='/dashboard'>Bảng điều khiển</a>\n      <a href='/settings'>Cài đặt</a>\n    </nav>\n  </header>\n  <main id='content'>\n    <h1>Chào mừng đến hệ thống quản lý</h1>\n    <p>Vui lòng đăng nhập để tiếp tục.</p>\n    <form action='/login' method='POST'>\n      <input type='text' name='username' placeholder='Tên đăng nhập'/>\n      <input type='password' name='password' placeholder='Mật khẩu'/>\n      <button type='submit'>Đăng nhập</button>\n    </form>\n  </main>\n</body>\n</html>\n"
+  },
+  {
+    "id": "doc-001",
+    "title": "System Architecture Overview",
+    "content": "This document describes the overall system architecture for the e-commerce platform. The system is divided into three main tiers: Frontend (React SPA), Backend API (FastAPI + PostgreSQL), and the Search layer (Apache Solr). Authentication is handled via JWT tokens issued by the Auth Service. All inter-service communication uses REST over HTTPS. The payment flow integrates with Stripe via the Payment Service. Rate limiting is enforced at the API Gateway level using Redis. For high availability, all services are deployed with at least 2 replicas behind a load balancer. Database replication is configured with 1 primary and 2 read replicas.",
+    "language": "en",
+    "file_type": "md",
+    "file_path": "docs/architecture/system_overview.md",
+    "author": "alice",
+    "repository": "docs",
+    "last_modified": "2025-12-20T10:00:00Z",
+    "tags": [
+      "architecture",
+      "system-design",
+      "overview"
+    ]
+  },
+  {
+    "id": "doc-002",
+    "title": "API Reference - Payment Endpoints",
+    "content": "## POST /api/v1/payments/charge\nCharge a customer's payment method.\n\nRequest body:\n```json\n{\n  \"customer_id\": \"cust_123\",\n  \"amount\": 9900,\n  \"currency\": \"usd\",\n  \"description\": \"Monthly subscription\"\n}\n```\n\nResponse 200:\n```json\n{\n  \"charge_id\": \"ch_abc123\",\n  \"status\": \"succeeded\",\n  \"amount\": 9900\n}\n```\n\n## POST /api/v1/payments/refund\nRefund a previous charge. Requires `charge_id`.\n\nError codes: 402 Payment Required, 422 Invalid Amount, 500 Stripe Error.",
+    "language": "en",
+    "file_type": "md",
+    "file_path": "docs/api/payment_api.md",
+    "author": "bob",
+    "repository": "docs",
+    "last_modified": "2025-12-22T14:00:00Z",
+    "tags": [
+      "api",
+      "payment",
+      "rest",
+      "documentation"
+    ]
+  },
+  {
+    "id": "doc-003",
+    "title": "Hướng dẫn triển khai hệ thống",
+    "content": "Tài liệu này mô tả quy trình triển khai hệ thống lên môi trường production.\n\n## Yêu cầu\n- Docker 24+\n- Kubernetes 1.28+\n- Helm 3+\n\n## Các bước triển khai\n\n1. Build Docker image:\n   ```bash\n   docker build -t myapp:v1.2.0 .\n   ```\n\n2. Đẩy lên registry:\n   ```bash\n   docker push registry.company.com/myapp:v1.2.0\n   ```\n\n3. Deploy lên Kubernetes:\n   ```bash\n   helm upgrade --install myapp ./helm/myapp --set image.tag=v1.2.0\n   ```\n\n4. Kiểm tra trạng thái:\n   ```bash\n   kubectl get pods -n production\n   kubectl rollout status deployment/myapp\n   ```\n\n## Rollback\nTrong trường hợp lỗi, dùng: `helm rollback myapp 1`",
+    "language": "vi",
+    "file_type": "md",
+    "file_path": "docs/deployment/deployment_guide_vi.md",
+    "author": "nguyen_van_a",
+    "repository": "docs",
+    "last_modified": "2026-01-05T09:30:00Z",
+    "tags": [
+      "deployment",
+      "kubernetes",
+      "docker",
+      "helm"
+    ]
+  },
+  {
+    "id": "doc-004",
+    "title": "デプロイメント手順書",
+    "content": "このドキュメントは本番環境へのデプロイ手順を説明します。\n\n## 事前確認\n- Dockerバージョン: 24以上\n- Kubernetesバージョン: 1.28以上\n- 環境変数の設定確認\n\n## デプロイ手順\n\n1. テストを実行する\n   ```bash\n   pytest tests/ -v --cov=src\n   ```\n\n2. Dockerイメージをビルドする\n   ```bash\n   docker build -t myapp:$(git rev-parse --short HEAD) .\n   ```\n\n3. ステージング環境で動作確認\n   - APIエンドポイントの疎通確認\n   - 認証フローの確認\n   - 決済処理のテスト\n\n4. 本番デプロイの承認を取得\n\n5. 本番環境にデプロイ\n   ```bash\n   kubectl apply -f k8s/production/\n   ```\n\n## ロールバック手順\nエラーが発生した場合は即座に前バージョンに戻す。",
+    "language": "ja",
+    "file_type": "docx",
+    "file_path": "docs/deployment/deployment_guide_ja.docx",
+    "author": "tanaka_kenji",
+    "repository": "docs",
+    "last_modified": "2025-11-30T02:00:00Z",
+    "tags": [
+      "deployment",
+      "kubernetes",
+      "japanese"
+    ]
+  },
+  {
+    "id": "ppt-001",
+    "title": "Q4 2025 Product Roadmap Presentation",
+    "content": "Slide 1: Q4 2025 Goal — Reach 100K MAU by December. Slide 2: Key Features — Search v2 with Solr integration, Payment refund flow, Japanese localization. Slide 3: Architecture Change — Migrate from monolith to microservices, introduce API Gateway, add Redis caching layer. Slide 4: Timeline — October: Search v2 launch. November: Payment refund. December: JP localization + performance tuning. Slide 5: KPIs — Search latency < 200ms (p95), payment success rate > 99.5%, user retention +15%.",
+    "language": "en",
+    "file_type": "pptx",
+    "file_path": "presentations/q4_roadmap_2025.pptx",
+    "author": "alice",
+    "repository": "presentations",
+    "last_modified": "2025-10-01T10:00:00Z",
+    "tags": [
+      "roadmap",
+      "q4",
+      "product",
+      "planning"
+    ]
+  },
+  {
+    "id": "ppt-002",
+    "title": "Báo cáo kỹ thuật - Nâng cấp hệ thống tìm kiếm",
+    "content": "Slide 1: Tổng quan - Hệ thống tìm kiếm hiện tại bị bottleneck khi > 10K QPS. Slide 2: Giải pháp đề xuất - Tích hợp Apache Solr với edismax parser, hỗ trợ tiếng Việt, Nhật, Anh. Slide 3: Kiến trúc mới - Solr cloud 3 node, ZooKeeper quản lý config, Flask API bridge. Slide 4: Kết quả kiểm tra - Latency giảm 60%, accuracy tăng 35%, hỗ trợ fuzzy search và proximity search. Slide 5: Kế hoạch triển khai - Phase 1: Test môi trường staging. Phase 2: A/B test 10% traffic. Phase 3: Full rollout.",
+    "language": "vi",
+    "file_type": "pptx",
+    "file_path": "presentations/search_upgrade_report_vi.pptx",
+    "author": "tran_thi_b",
+    "repository": "presentations",
+    "last_modified": "2025-12-05T08:00:00Z",
+    "tags": [
+      "search",
+      "solr",
+      "presentation",
+      "performance"
+    ]
+  },
+  {
+    "id": "xls-001",
+    "title": "Bug Tracker - December 2025",
+    "content": "TICKET-001 | CRITICAL | Authentication token expiry not handled | auth/authentication.py | alice | Open. TICKET-002 | HIGH | Payment refund fails for amounts over 1000 USD | payments/payment_service.py | bob | In Progress. TICKET-003 | MEDIUM | Search results not sorted by relevance when fuzzy enabled | search/query_builder.py | charlie | Open. TICKET-004 | LOW | Footer links broken on mobile | frontend/templates/index.html | tran_thi_b | Closed. TICKET-005 | HIGH | Database connection pool exhaustion under load | lib/database.ts | alice | Open. TICKET-006 | CRITICAL | JWT secret key hardcoded in production config | backend/auth/authentication.py | alice | Open.",
+    "language": "en",
+    "file_type": "xlsx",
+    "file_path": "tracking/bug_tracker_dec2025.xlsx",
+    "author": "bob",
+    "repository": "project-management",
+    "last_modified": "2025-12-28T17:00:00Z",
+    "tags": [
+      "bugs",
+      "tickets",
+      "tracking",
+      "december"
+    ]
+  },
+  {
+    "id": "xls-002",
+    "title": "Performance Metrics - API Latency Q4",
+    "content": "Endpoint /api/v1/search: P50=45ms P95=180ms P99=450ms Errors=0.1%. Endpoint /api/v1/payments/charge: P50=320ms P95=1200ms P99=2500ms Errors=0.5%. Endpoint /api/v1/auth/token: P50=12ms P95=45ms P99=90ms Errors=0.01%. Database query avg=8ms max=240ms slow_queries=12. Redis cache hit rate=87%. Solr query avg=25ms max=350ms. Total RPS peak=8500. Memory usage avg=2.1GB peak=3.8GB.",
+    "language": "en",
+    "file_type": "xlsx",
+    "file_path": "metrics/api_latency_q4_2025.xlsx",
+    "author": "charlie",
+    "repository": "project-management",
+    "last_modified": "2026-01-02T09:00:00Z",
+    "tags": [
+      "metrics",
+      "performance",
+      "latency",
+      "monitoring"
+    ]
+  },
+  {
+    "id": "ocr-001",
+    "title": "OCR: Meeting Whiteboard - Authentication Flow",
+    "content": "User -> Frontend: POST /login {username, password}. Frontend -> Auth Service: Validate credentials. Auth Service -> Database: SELECT user WHERE email = ? AND active = true. Database -> Auth Service: User record. Auth Service -> JWT Library: Generate token (24h expiry, role=user). Auth Service -> Frontend: {token, refresh_token, expires_at}. Frontend -> LocalStorage: Store token. Frontend -> API: All requests with Authorization: Bearer <token>. API Gateway -> Auth Service: Verify token on each request. NOTES: - Token refresh endpoint needed at /auth/refresh - Logout must invalidate token (Redis blacklist) - Rate limit: 5 failed logins -> 15min lockout.",
+    "language": "en",
+    "file_type": "txt",
+    "file_path": "ocr_output/meeting_20251210_whiteboard.txt",
+    "author": "alice",
+    "repository": "meeting-notes",
+    "last_modified": "2025-12-10T12:00:00Z",
+    "tags": [
+      "ocr",
+      "meeting",
+      "auth",
+      "flow",
+      "whiteboard"
+    ],
+    "ocr_content": "User -> Frontend: POST /login {username, password}. Frontend -> Auth Service: Validate credentials. Auth Service -> Database: SELECT user WHERE email = ? AND active = true. Database -> Auth Service: User record. Auth Service -> JWT Library: Generate token (24h expiry, role=user). Auth Service -> Frontend: {token, refresh_token, expires_at}. Frontend -> LocalStorage: Store token. Frontend -> API: All requests with Authorization: Bearer <token>. API Gateway -> Auth Service: Verify token on each request. NOTES: - Token refresh endpoint needed at /auth/refresh - Logout must invalidate token (Redis blacklist) - Rate limit: 5 failed logins -> 15min lockout."
+  },
+  {
+    "id": "ocr-002",
+    "title": "OCR: Ghi chú họp - Kiến trúc hệ thống thanh toán",
+    "content": "Cuộc họp ngày 15/12/2025. Thành phần: Alice (Tech Lead), Bob (Backend), Tran Thi B (Frontend). Nội dung: 1. Vấn đề hiện tại - payment_service.py đang gọi Stripe trực tiếp, không có retry logic, timeout 30s quá dài. 2. Giải pháp đề xuất - Tạo PaymentQueue với Redis, xử lý async, retry 3 lần với exponential backoff. Timeout giảm xuống 10s. 3. Webhook - Cần endpoint /webhook/stripe để nhận callback từ Stripe. Lưu event vào database trước khi xử lý (idempotency). 4. Monitoring - Alert khi error rate > 1%, latency > 2s. Dashboard Grafana riêng cho payment flow. Action items: Bob tạo PaymentQueue. Alice review thiết kế webhook. Deadline: 20/12/2025.",
+    "language": "vi",
+    "file_type": "txt",
+    "file_path": "ocr_output/meeting_20251215_payment_arch.txt",
+    "author": "tran_thi_b",
+    "repository": "meeting-notes",
+    "last_modified": "2025-12-15T16:30:00Z",
+    "tags": [
+      "ocr",
+      "meeting",
+      "payment",
+      "architecture"
+    ],
+    "ocr_content": "Cuộc họp ngày 15/12/2025. Thành phần: Alice (Tech Lead), Bob (Backend), Tran Thi B (Frontend). Nội dung: 1. Vấn đề hiện tại - payment_service.py đang gọi Stripe trực tiếp, không có retry logic, timeout 30s quá dài. 2. Giải pháp đề xuất - Tạo PaymentQueue với Redis, xử lý async, retry 3 lần với exponential backoff. Timeout giảm xuống 10s. 3. Webhook - Cần endpoint /webhook/stripe để nhận callback từ Stripe. Lưu event vào database trước khi xử lý (idempotency). 4. Monitoring - Alert khi error rate > 1%, latency > 2s. Dashboard Grafana riêng cho payment flow. Action items: Bob tạo PaymentQueue. Alice review thiết kế webhook. Deadline: 20/12/2025."
+  },
+  {
+    "id": "ocr-003",
+    "title": "OCR: ミーティングメモ - 検索システム改善",
+    "content": "会議日: 2025年11月20日。参加者: 田中健二（バックエンド）、アリス（アーキテクト）。議題: Solr検索システムの改善。現状の問題点: 1. 日本語形態素解析が不十分 - Kuromoji tokenizrの導入が必要。2. ファジー検索で誤検知が多い。3. ファセット機能が遅い（2秒以上）。改善提案: 1. Kuromojiアナライザーを追加してSchemaに組み込む。2. ファジー距離を最大1に制限する。3. ファセットにdocValuesを有効化する。4. キャッシュサイズを512から1024に増やす。次のステップ: 田中がKuromoji設定をテスト。来週月曜日に結果を報告。予算: 追加インフラ不要。",
+    "language": "ja",
+    "file_type": "txt",
+    "file_path": "ocr_output/meeting_20251120_search_jp.txt",
+    "author": "tanaka_kenji",
+    "repository": "meeting-notes",
+    "last_modified": "2025-11-20T07:00:00Z",
+    "tags": [
+      "ocr",
+      "meeting",
+      "search",
+      "japanese",
+      "solr"
+    ],
+    "ocr_content": "会議日: 2025年11月20日。参加者: 田中健二（バックエンド）、アリス（アーキテクト）。議題: Solr検索システムの改善。現状の問題点: 1. 日本語形態素解析が不十分 - Kuromoji tokenizrの導入が必要。2. ファジー検索で誤検知が多い。3. ファセット機能が遅い（2秒以上）。改善提案: 1. Kuromojiアナライザーを追加してSchemaに組み込む。2. ファジー距離を最大1に制限する。3. ファセットにdocValuesを有効化する。4. キャッシュサイズを512から1024に増やす。次のステップ: 田中がKuromoji設定をテスト。来週月曜日に結果を報告。予算: 追加インフラ不要。"
+  },
+  {
+    "id": "src-009",
+    "title": "token_refresh.py",
+    "content": "import redis\nfrom datetime import datetime, timedelta\nfrom jose import jwt, JWTError\n\nredis_client = redis.Redis(host='localhost', port=6379, db=0)\n\nREFRESH_TOKEN_EXPIRE_DAYS = 30\n\ndef create_refresh_token(user_id: str) -> str:\n    \"\"\"Create a long-lived refresh token stored in Redis.\"\"\"\n    payload = {'sub': user_id, 'type': 'refresh'}\n    token = jwt.encode(payload, 'refresh-secret', algorithm='HS256')\n    # Store in Redis with TTL\n    redis_client.setex(f'refresh:{token}', timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS), user_id)\n    return token\n\ndef invalidate_token(token: str) -> bool:\n    \"\"\"Add token to Redis blacklist (logout).\"\"\"\n    redis_client.setex(f'blacklist:{token}', timedelta(hours=25), '1')\n    return True\n\ndef is_token_blacklisted(token: str) -> bool:\n    return redis_client.exists(f'blacklist:{token}') > 0\n",
+    "language": "en",
+    "file_type": "py",
+    "file_path": "backend/auth/token_refresh.py",
+    "author": "alice",
+    "repository": "main-app",
+    "last_modified": "2025-12-12T10:30:00Z",
+    "tags": [
+      "auth",
+      "jwt",
+      "redis",
+      "token",
+      "refresh"
+    ],
+    "source_code_content": "import redis\nfrom datetime import datetime, timedelta\nfrom jose import jwt, JWTError\n\nredis_client = redis.Redis(host='localhost', port=6379, db=0)\n\nREFRESH_TOKEN_EXPIRE_DAYS = 30\n\ndef create_refresh_token(user_id: str) -> str:\n    \"\"\"Create a long-lived refresh token stored in Redis.\"\"\"\n    payload = {'sub': user_id, 'type': 'refresh'}\n    token = jwt.encode(payload, 'refresh-secret', algorithm='HS256')\n    # Store in Redis with TTL\n    redis_client.setex(f'refresh:{token}', timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS), user_id)\n    return token\n\ndef invalidate_token(token: str) -> bool:\n    \"\"\"Add token to Redis blacklist (logout).\"\"\"\n    redis_client.setex(f'blacklist:{token}', timedelta(hours=25), '1')\n    return True\n\ndef is_token_blacklisted(token: str) -> bool:\n    return redis_client.exists(f'blacklist:{token}') > 0\n"
+  }
+]

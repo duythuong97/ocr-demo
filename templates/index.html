@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description"
+        content="Solr Document Search — search source code and documents in English, Japanese, and Vietnamese." />
+    <title>Solr Search</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+
+    <!-- ── Header ──────────────────────────────────────────────────────────────── -->
+    <header class="site-header">
+        <div class="header-inner">
+            <a href="/" class="logo">
+                <span class="logo-icon">⬡</span>
+                <span class="logo-text">SolrSearch</span>
+            </a>
+            <div class="header-actions">
+                <span class="lang-badge">EN · 日 · VI</span>
+                <button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle dark/light mode">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ── Hero / Search Bar ───────────────────────────────────────────────────── -->
+    <main>
+        <section class="hero {% if search %}compact{% endif %}">
+            <div class="hero-inner">
+                {% if not search %}
+                <h1 class="hero-title">Search Documents &amp; Code</h1>
+                <p class="hero-subtitle">Powered by Apache Solr · English · 日本語 · Tiếng Việt</p>
+                {% endif %}
+
+                <form id="searchForm" action="/search" method="GET" autocomplete="off">
+                    <div class="search-box">
+                        <input type="text" name="q" id="queryInput" class="search-input"
+                            placeholder="Enter keywords, code snippets, phrases…"
+                            value="{{ params.query if params else '' }}" autofocus spellcheck="false" />
+                        <button type="submit" class="search-btn" id="searchBtn">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg>
+                            Search
+                        </button>
+                    </div>
+
+                    <!-- Quick filter pills -->
+                    <div class="quick-filters">
+                        {% for lang in languages %}
+                        <label class="pill {% if params and params.language == lang.value %}active{% endif %}">
+                            <input type="radio" name="lang" value="{{ lang.value }}" {% if params and
+                                params.language==lang.value %}checked{% endif %}
+                                onchange="document.getElementById('searchForm').submit()" />
+                            {{ lang.label }}
+                        </label>
+                        {% endfor %}
+                    </div>
+
+                    <!-- ── Advanced Options Panel ─────────────────────────────────────── -->
+                    <div class="adv-toggle-row">
+                        <button type="button" class="adv-toggle" id="advToggle" aria-expanded="false">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <line x1="4" y1="6" x2="20" y2="6" />
+                                <line x1="8" y1="12" x2="16" y2="12" />
+                                <line x1="10" y1="18" x2="14" y2="18" />
+                            </svg>
+                            Advanced Options
+                        </button>
+                        {% if params and (params.file_type or params.date_from or params.date_to or params.fuzzy != '0'
+                        or params.operator != 'OR' or params.parser != 'edismax' or params.phrase_mode or
+                        params.boost_func or params.extra_fq or params.debug_mode
+                        or params.mm_val or params.group_by or params.proximity != '0') %}
+                        <span class="adv-badge">Active</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="adv-panel" id="advPanel" {% if params and (params.file_type or params.date_from or
+                        params.date_to or params.fuzzy !='0' or params.operator !='OR' or params.parser !='edismax' or
+                        params.phrase_mode or params.boost_func or params.extra_fq or params.debug_mode)
+                        %}style="display:grid" {% endif %}>
+
+                        <!-- Row 1 -->
+                        <div class="adv-group">
+                            <label class="adv-label">Query Parser</label>
+                            <div class="select-wrap">
+                                <select name="parser" id="parserSelect">
+                                    <option value="edismax" {% if not params or params.parser=='edismax' %}selected{%
+                                        endif %}>eDisMax (recommended)</option>
+                                    <option value="lucene" {% if params and params.parser=='lucene' %}selected{% endif
+                                        %}>Lucene (Standard)</option>
+                                    <option value="dismax" {% if params and params.parser=='dismax' %}selected{% endif
+                                        %}>DisMax</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="adv-group">
+                            <label class="adv-label">Default Operator</label>
+                            <div class="btn-group">
+                                <label class="btn-opt {% if not params or params.operator == 'OR' %}active{% endif %}">
+                                    <input type="radio" name="op" value="OR" {% if not params or params.operator=='OR'
+                                        %}checked{% endif %} /> OR
+                                </label>
+                                <label class="btn-opt {% if params and params.operator == 'AND' %}active{% endif %}">
+                                    <input type="radio" name="op" value="AND" {% if params and params.operator=='AND'
+                                        %}checked{% endif %} /> AND
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="adv-group">
+                            <label class="adv-label">File Type</label>
+                            <div class="select-wrap">
+                                <select name="file_type">
+                                    {% for ft in file_types %}
+                                    <option value="{{ ft.value }}" {% if params and params.file_type==ft.value
+                                        %}selected{% endif %}>{{ ft.label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="adv-group">
+                            <label class="adv-label">Results per Page</label>
+                            <div class="select-wrap">
+                                <select name="rows">
+                                    {% for n in [5, 10, 20, 50] %}
+                                    <option value="{{ n }}" {% if params and params.rows==n %}selected{% endif %}>{{ n
+                                        }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Row 2 -->
+                        <div class="adv-group">
+                            <label class="adv-label">Sort By</label>
+                            <div class="select-wrap">
+                                <select name="sort">
+                                    {% for s in sort_options %}
+                                    <option value="{{ s.value }}" {% if params and params.sort_val==s.value %}selected{%
+                                        endif %}>{{ s.label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="adv-group">
+                            <label class="adv-label">
+                                Fuzzy Distance
+                                <span class="tooltip"
+                                    title="0 = exact, 1 = allow 1 edit difference, 2 = allow 2 edits">?</span>
+                            </label>
+                            <div class="range-wrap">
+                                <input type="range" name="fuzzy" id="fuzzyRange" min="0" max="2" step="1"
+                                    value="{{ params.fuzzy if params else '0' }}"
+                                    oninput="document.getElementById('fuzzyVal').textContent=this.value" />
+                                <span class="range-val" id="fuzzyVal">{{ params.fuzzy if params else '0' }}</span>
+                            </div>
+                        </div>
+
+                        <div class="adv-group">
+                            <label class="adv-label">Phrase Mode</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="phrase" value="1" id="phraseToggle" {% if params and
+                                    params.phrase_mode %}checked{% endif %} />
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Exact phrase search</span>
+                            </label>
+                        </div>
+
+                        <div class="adv-group">
+                            <label class="adv-label">
+                                Proximity Search (slop)
+                                <span class="tooltip" title="Tìm 2+ từ gần nhau trong N vị trí. Ví dụ: &quot;login error&quot;~5 → 2 từ này cách nhau tối đa 5 từ. Overrides Phrase &amp; Fuzzy mode.">?</span>
+                            </label>
+                            <div class="range-wrap">
+                                <input type="range" name="proximity" id="proximityRange" min="0" max="20" step="1"
+                                    value="{{ params.proximity if params else '0' }}"
+                                    oninput="document.getElementById('proximityVal').textContent=this.value;updateProximityHint(this.value)" />
+                                <span class="range-val" id="proximityVal">{{ params.proximity if params else '0' }}</span>
+                            </div>
+                            <p class="adv-hint" id="proximityHint" style="display:{% if params and params.proximity != '0' %}block{% else %}none{% endif %}">
+                                Query: <code>"{{ params.query if params else '…' }}"~{{ params.proximity if params else '0' }}</code>
+                            </p>
+                        </div>
+
+                        <div class="adv-group">
+                            <label class="adv-label">Highlighting</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="hl" value="1" id="hlToggle" {% if not params or
+                                    params.hl_enabled %}checked{% endif %} />
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Show snippets</span>
+                            </label>
+                        </div>
+
+                        <div class="adv-group">
+                            <label class="adv-label">
+                                Min Should Match (mm)
+                                <span class="tooltip" title="Số term tối thiểu phải match. VD: '75%' = 75% số từ, '3' = ít nhất 3 từ, '2&lt;75%' = nếu &gt;2 từ thì 75% phải match. Chỉ áp dụng cho edismax.">?</span>
+                            </label>
+                            <input type="text" name="mm" class="text-input" id="mmInput"
+                                placeholder="e.g. 75%  or  3  or  2&lt;75%"
+                                value="{{ params.mm_val if params else '' }}" />
+                            <p class="adv-hint" id="mmHint" style="display:{% if params and params.mm_val %}block{% else %}none{% endif %}">
+                                {% if params and params.mm_val %}
+                                Active: at least <code>{{ params.mm_val }}</code> of query terms must match
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        <div class="adv-group">
+                            <label class="adv-label">
+                                Group Results By
+                                <span class="tooltip" title="Nhóm kết quả theo field. VD: file_path → gom các đoạn match cùng file. repository → gom theo repo.">?</span>
+                            </label>
+                            <div class="select-wrap">
+                                <select name="group_by" id="groupBySelect">
+                                    <option value="" {% if not params or not params.group_by %}selected{% endif %}>No Grouping</option>
+                                    <option value="file_path"   {% if params and params.group_by == 'file_path'   %}selected{% endif %}>By File Path</option>
+                                    <option value="repository"  {% if params and params.group_by == 'repository'  %}selected{% endif %}>By Repository</option>
+                                    <option value="file_type"   {% if params and params.group_by == 'file_type'   %}selected{% endif %}>By File Type</option>
+                                    <option value="author"      {% if params and params.group_by == 'author'      %}selected{% endif %}>By Author</option>
+                                    <option value="language"    {% if params and params.group_by == 'language'    %}selected{% endif %}>By Language</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Row 3 — Date Range -->
+                        <div class="adv-group adv-group--wide">
+                            <label class="adv-label">Date Range</label>
+                            <div class="date-range">
+                                <input type="date" name="date_from" placeholder="From"
+                                    value="{{ params.date_from if params else '' }}" />
+                                <span class="date-sep">→</span>
+                                <input type="date" name="date_to" placeholder="To"
+                                    value="{{ params.date_to if params else '' }}" />
+                            </div>
+                        </div>
+
+                        <!-- Row 4 — Power user -->
+                        <div class="adv-group adv-group--wide">
+                            <label class="adv-label">
+                                Boost Function (bf)
+                                <span class="tooltip"
+                                    title="Solr bf parameter e.g. recip(rord(last_modified),1,1000,1000)">?</span>
+                            </label>
+                            <input type="text" name="bf" class="text-input"
+                                placeholder="e.g. recip(rord(last_modified),1,1000,1000)"
+                                value="{{ params.boost_func if params else '' }}" />
+                        </div>
+
+                        <div class="adv-group adv-group--wide">
+                            <label class="adv-label">
+                                Raw Filter Query (fq)
+                                <span class="tooltip"
+                                    title="Direct Solr filter query e.g. author:alice OR tags:python">?</span>
+                            </label>
+                            <input type="text" name="fq" class="text-input" placeholder="e.g. author:alice AND tags:api"
+                                value="{{ params.extra_fq if params else '' }}" />
+                        </div>
+
+                        <div class="adv-group">
+                            <label class="adv-label">Debug</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="debug" value="1" id="debugToggle" {% if params and
+                                    params.debug_mode %}checked{% endif %} />
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Show parsed query</span>
+                            </label>
+                        </div>
+
+                        <div class="adv-group adv-actions">
+                            <button type="button" class="btn-reset" id="resetBtn">Reset All</button>
+                        </div>
+
+                    </div><!-- /adv-panel -->
+                </form>
+            </div>
+        </section><!-- /hero -->
+
+        <!-- ── Results Layout ────────────────────────────────────────────────────── -->
+        {% if search %}
+        <div class="results-layout">
+
+            <!-- Sidebar: Facets -->
+            <aside class="facets-panel">
+                <h2 class="facets-title">Refine</h2>
+
+                {% if search.error %}
+                <div class="facet-error">⚠ Solr error</div>
+                {% else %}
+                {% for field, pairs in search.facets.items() %}
+                {% if pairs %}
+                <div class="facet-group">
+                    <h3 class="facet-group-title">{{ field | replace('_', ' ') | title }}</h3>
+                    <ul class="facet-list">
+                        {% for val, cnt in pairs %}
+                        <li class="facet-item">
+                            <a href="{{ request.url | replace('page='+params.page|string, 'page=1') }}&{{ field }}={{ val | urlencode }}"
+                                class="facet-link {% if (params.language == val) or (params.file_type == val) %}facet-link--active{% endif %}">
+                                <span class="facet-val">{{ val }}</span>
+                                <span class="facet-cnt">{{ cnt }}</span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                {% endfor %}
+                {% endif %}
+            </aside>
+
+            <!-- Main: Results -->
+            <section class="results-main">
+                {% if search.error %}
+                <div class="error-card">
+                    <h2>⚠ Solr Error</h2>
+                    <pre>{{ search.error }}</pre>
+                </div>
+
+                {% else %}
+                <div class="results-meta">
+                    <span class="num-found">{{ search.num_found | format_number }} results</span>
+                    <span class="results-time">Page {{ search.page }} of {{ search.total_pages }}</span>
+                </div>
+
+                {% if search.grouped %}
+                <!-- ── Grouped Results ──────────────────────────────────────── -->
+                <div class="group-label">
+                    Grouped by <strong>{{ params.group_by | replace('_',' ') | title }}</strong> ·
+                    {{ search.num_found | format_number }} groups
+                </div>
+                {% if not search.groups %}
+                <div class="no-results">
+                    <span class="no-results-icon">🔍</span>
+                    <p>No results found for <strong>{{ params.query }}</strong>.</p>
+                </div>
+                {% endif %}
+                {% for grp in search.groups %}
+                <details class="group-card" open>
+                    <summary class="group-summary">
+                        <span class="group-key">📁 {{ grp.key }}</span>
+                        <span class="group-count">{{ grp.count }} match{{ 'es' if grp.count != 1 }}</span>
+                    </summary>
+                    <ol class="result-list group-result-list">
+                        {% for doc in grp.docs %}
+                        {% set doc_id = doc.get('id', '') %}
+                        {% set hl = search.highlighting.get(doc_id, {}) %}
+                        <li class="result-card result-card--nested">
+                            <div class="result-header">
+                                {% if doc.get('file_type') %}<span class="badge badge--type">{{ doc.file_type }}</span>{% endif %}
+                                {% if doc.get('language') %}<span class="badge badge--lang">{{ doc.language }}</span>{% endif %}
+                            </div>
+                            {% set title_hl = hl.get('title', []) %}
+                            <h3 class="result-title">
+                                {{ title_hl[0] | safe if title_hl else doc.get('title', doc_id) }}
+                            </h3>
+                            {% if doc.get('file_path') and doc.file_path != grp.key %}
+                            <p class="result-path">📄 {{ doc.file_path }}</p>
+                            {% endif %}
+                            {% set content_hl = hl.get('content', []) or hl.get('source_code_content', []) or hl.get('ocr_content', []) %}
+                            {% set snip_source = 'code' if hl.get('source_code_content') else ('ocr' if hl.get('ocr_content') else 'text') %}
+                            {% if content_hl %}
+                            <div class="result-snippet">
+                                {% if snip_source == 'code' %}<span class="snip-badge snip-badge--code">⌨ code</span>{% endif %}
+                                {% if snip_source == 'ocr' %}<span class="snip-badge snip-badge--ocr">📷 ocr</span>{% endif %}
+                                {% for snip in content_hl[:2] %}<p>…{{ snip | safe }}…</p>{% endfor %}
+                            </div>
+                            {% elif doc.get('source_code_content') %}
+                            <p class="result-snippet-plain">⌨ {{ doc.source_code_content[:200] }}…</p>
+                            {% elif doc.get('ocr_content') %}
+                            <p class="result-snippet-plain">📷 {{ doc.ocr_content[:200] }}…</p>
+                            {% elif doc.get('content') %}
+                            <p class="result-snippet-plain">{{ doc.content[:200] }}…</p>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ol>
+                    {% if grp.count > 3 %}
+                    <p class="group-more">+ {{ grp.count - 3 }} more matches in this {{ params.group_by | replace('_',' ') }}</p>
+                    {% endif %}
+                </details>
+                {% endfor %}
+
+                {% else %}
+                <!-- ── Flat Results ─────────────────────────────────────────── -->
+                {% if not search.docs %}
+                <div class="no-results">
+                    <span class="no-results-icon">🔍</span>
+                    <p>No results found for <strong>{{ params.query }}</strong>.</p>
+                    <p class="no-results-tip">Try broader keywords, switch operator to OR, or reduce fuzzy distance.</p>
+                </div>
+                {% endif %}
+
+                <ol class="result-list" start="{{ search.start + 1 }}">
+                    {% for doc in search.docs %}
+                    {% set doc_id = doc.get('id', '') %}
+                    {% set hl = search.highlighting.get(doc_id, {}) %}
+                    <li class="result-card">
+                        <div class="result-header">
+                            {% if doc.get('file_type') %}
+                            <span class="badge badge--type">{{ doc.file_type }}</span>
+                            {% endif %}
+                            {% if doc.get('language') %}
+                            <span class="badge badge--lang">{{ doc.language }}</span>
+                            {% endif %}
+                        </div>
+
+                        {% set title_hl = hl.get('title', []) %}
+                        <h3 class="result-title">
+                            {% if doc.get('url') %}
+                            <a href="{{ doc.url }}" target="_blank" rel="noopener">
+                                {% endif %}
+                                {% if title_hl %}
+                                {{ title_hl[0] | safe }}
+                                {% else %}
+                                {{ doc.get('title', doc_id) }}
+                                {% endif %}
+                                {% if doc.get('url') %}</a>{% endif %}
+                        </h3>
+
+                        {% if doc.get('file_path') %}
+                        <p class="result-path">📄 {{ doc.file_path }}</p>
+                        {% endif %}
+
+                        {% set content_hl = hl.get('source_code_content', []) or hl.get('content', []) or hl.get('ocr_content', []) %}
+                        {% set snip_source = 'code' if hl.get('source_code_content') else ('ocr' if hl.get('ocr_content') else 'text') %}
+                        {% if content_hl %}
+                        <div class="result-snippet">
+                            {% if snip_source == 'code' %}<span class="snip-badge snip-badge--code">⌨ code</span>{% endif %}
+                            {% if snip_source == 'ocr' %}<span class="snip-badge snip-badge--ocr">📷 ocr</span>{% endif %}
+                            {% for snip in content_hl %}
+                            <p>…{{ snip | safe }}…</p>
+                            {% endfor %}
+                        </div>
+                        {% elif doc.get('source_code_content') %}
+                        <p class="result-snippet-plain">⌨ {{ doc.source_code_content[:300] }}…</p>
+                        {% elif doc.get('ocr_content') %}
+                        <p class="result-snippet-plain">📷 {{ doc.ocr_content[:300] }}…</p>
+                        {% elif doc.get('content') %}
+                        <p class="result-snippet-plain">{{ doc.content[:300] }}…</p>
+                        {% endif %}
+
+                        {% if doc.get('author') or doc.get('last_modified') %}
+                        <div class="result-meta">
+                            {% if doc.get('author') %}<span>✍ {{ doc.author }}</span>{% endif %}
+                            {% if doc.get('last_modified') %}<span>🕐 {{ doc.last_modified }}</span>{% endif %}
+                        </div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ol>
+
+                <!-- Pagination -->
+                {% if search.total_pages > 1 %}
+                <nav class="pagination" aria-label="Pagination">
+                    {% set base = request.url | remove_param('page') %}
+                    {% if search.page > 1 %}
+                    <a href="{{ base }}&page={{ search.page - 1 }}" class="page-btn">← Prev</a>
+                    {% endif %}
+
+                    {% for p_num in range([1, search.page - 2]|max, [search.total_pages + 1, search.page + 3]|min) %}
+                    <a href="{{ base }}&page={{ p_num }}"
+                        class="page-btn {% if p_num == search.page %}page-btn--active{% endif %}">{{ p_num }}</a>
+                    {% endfor %}
+
+                    {% if search.page < search.total_pages %} <a href="{{ base }}&page={{ search.page + 1 }}"
+                        class="page-btn">Next →</a>
+                        {% endif %}
+                </nav>
+                {% endif %}
+
+                <!-- End grouped/flat toggle -->
+                {% endif %}
+
+                <!-- Debug info -->
+                {% if params.debug_mode and search.debug %}
+                <details class="debug-panel">
+                    <summary>🐛 Debug — Parsed Query</summary>
+                    <pre>{{ search.debug | tojson(indent=2) }}</pre>
+                    <p><strong>Solr q:</strong> <code>{{ search.q }}</code></p>
+                    <p><strong>Params:</strong> <code>{{ search.params }}</code></p>
+                </details>
+                {% endif %}
+
+                {% endif %}
+            </section>
+        </div><!-- /results-layout -->
+        {% endif %}
+
+    </main>
+
+    <footer class="site-footer">
+        <p>Powered by <strong>Apache Solr</strong> &amp; <strong>Flask</strong> · Multilingual: EN · 日本語 · Tiếng Việt
+        </p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

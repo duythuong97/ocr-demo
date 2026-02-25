@@ -1,0 +1,14 @@
+# Solr stopwords (minimal, can extend)
+a
+an
+the
+is
+in
+on
+at
+of
+to
+and
+or
+for
+with

@@ -1,0 +1,15 @@
+# Custom Solr image with configset baked in
+# Works with remote Docker contexts — no bind mounts needed
+FROM solr:9.4
+
+# Copy our configset into Solr's built-in configsets directory
+# solr-precreate expects the configset at /opt/solr/server/solr/configsets/<name>/conf/
+COPY solr/configset/conf/ /opt/solr/server/solr/configsets/documents/conf/
+
+# Fix permissions so the solr user can read the files
+USER root
+RUN chown -R solr:solr /opt/solr/server/solr/configsets/documents/
+USER solr
+
+# Pre-create the "documents" core using our named configset
+CMD ["solr-precreate", "documents", "/opt/solr/server/solr/configsets/documents"]
