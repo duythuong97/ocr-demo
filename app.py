@@ -8,14 +8,47 @@ import math
 import logging
 from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
 from flask import Flask, render_template, request, jsonify
+from werkzeug.middleware.proxy_fix import ProxyFix
 import pysolr
 import config as cfg
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# ── Local Subdirectory Simulation ──────────────────────────────────────────────
+if cfg.APP_PREFIX:
+    from werkzeug.middleware.dispatcher import DispatcherMiddleware
+    from flask import Response
+
+    # Ensure prefix starts with / and ends without /
+    prefix = cfg.APP_PREFIX.strip()
+    if not prefix.startswith("/"):
+        prefix = "/" + prefix
+    if prefix.endswith("/"):
+        prefix = prefix.rstrip("/")
+
+    def root_app(environ, start_response):
+        """Redirect root traffic to the simulated subdirectory."""
+        path = environ.get("PATH_INFO", "")
+        # Only redirect if we are at the literal root
+        if path == "/" or not path:
+            url = prefix + "/"
+            res = Response(
+                f"Redirecting to {url}...", status=302, headers=[("Location", url)]
+            )
+            return res(environ, start_response)
+
+        # Otherwise return 404 for paths not covered by the dispatcher
+        res = Response("Not Found", status=404)
+        return res(environ, start_response)
+
+    app.wsgi_app = DispatcherMiddleware(root_app, {prefix: app.wsgi_app})
+
 app.logger.setLevel(logging.INFO)
 
 
 # ── Jinja2 custom filters ──────────────────────────────────────────────────────
+
 
 @app.template_filter("format_number")
 def fmt_number(value):
@@ -35,6 +68,28 @@ def remove_param(url: str, param: str) -> str:
     new_query = urlencode({k: v[0] for k, v in qs.items()})
     return urlunparse(parsed._replace(query=new_query))
 
+
+@app.template_filter("set_param")
+def set_param(url: str, param: str, value: str) -> str:
+    """Return the URL with the specified query param set to a new value."""
+    parsed = urlparse(url)
+    qs = parse_qs(parsed.query, keep_blank_values=True)
+    qs[param] = [value]
+    new_query = urlencode({k: v[0] for k, v in qs.items()})
+    return urlunparse(parsed._replace(query=new_query))
+
+
+@app.template_filter("add_facet")
+def add_facet(url: str, field: str, value: str) -> str:
+    """Add or update a facet parameter and reset page to 1."""
+    parsed = urlparse(url)
+    qs = parse_qs(parsed.query, keep_blank_values=True)
+    qs[field] = [value]
+    qs["page"] = ["1"]
+    new_query = urlencode({k: v[0] for k, v in qs.items()})
+    return urlunparse(parsed._replace(query=new_query))
+
+
 # ── Solr client ────────────────────────────────────────────────────────────────
 solr = pysolr.Solr(cfg.SOLR_URL, timeout=cfg.SOLR_TIMEOUT, always_commit=False)
 
@@ -49,36 +104,38 @@ def parse_form(args: dict) -> dict:
     query = args.get("q", "").strip()
 
     # --- Query modifiers ---
-    phrase_mode   = args.get("phrase", "") == "1"
-    fuzzy         = args.get("fuzzy", "0").strip()
-    operator      = args.get("op", cfg.DEFAULT_OPERATOR)
-    parser        = args.get("parser", cfg.DEFAULT_PARSER)
-    boost_func    = args.get("bf", "").strip()
-    debug_mode    = args.get("debug", "") == "1"
+    phrase_mode = args.get("phrase", "") == "1"
+    fuzzy = args.get("fuzzy", "0").strip()
+    operator = args.get("op", cfg.DEFAULT_OPERATOR)
+    parser = args.get("parser", cfg.DEFAULT_PARSER)
+    boost_func = args.get("bf", "").strip()
+    debug_mode = args.get("debug", "") == "1"
 
     # --- Filters ---
-    language      = args.get("lang", "").strip()
-    file_type     = args.get("file_type", "").strip()
-    date_from     = args.get("date_from", "").strip()
-    date_to       = args.get("date_to", "").strip()
-    extra_fq      = args.get("fq", "").strip()       # raw fq from user
+    language = args.get("lang", "").strip()
+    file_type = args.get("file_type", "").strip()
+    date_from = args.get("date_from", "").strip()
+    date_to = args.get("date_to", "").strip()
+    extra_fq = args.get("fq", "").strip()  # raw fq from user
 
     # --- Display ---
-    sort_val      = args.get("sort", "score desc")
-    rows          = min(int(args.get("rows", cfg.DEFAULT_ROWS)), 100)
-    page          = max(int(args.get("page", 1)), 1)
-    start         = (page - 1) * rows
+    sort_val = args.get("sort", "score desc")
+    rows = min(int(args.get("rows", cfg.DEFAULT_ROWS)), 100)
+    page = max(int(args.get("page", 1)), 1)
+    start = (page - 1) * rows
 
     # --- Proximity ---
-    proximity     = args.get("proximity", "0").strip()
+    proximity = args.get("proximity", "0").strip()
 
     # --- Minimum Should Match ---
-    mm_val        = args.get("mm", "").strip()   # e.g. "75%" or "3" or empty = auto
+    mm_val = args.get("mm", "").strip()  # e.g. "75%" or "3" or empty = auto
 
     # --- Group by ---
-    group_by      = args.get("group_by", "").strip()  # field name, e.g. file_path, repository
+    group_by = args.get(
+        "group_by", ""
+    ).strip()  # field name, e.g. file_path, repository
 
-    hl_enabled    = args.get("hl", "1") != "0"
+    hl_enabled = args.get("hl", "1") != "0"
 
     return dict(
         query=query,
@@ -144,7 +201,7 @@ def build_solr_params(p: dict) -> tuple[str, dict]:
 
     # Date range
     df = p["date_from"] or "*"
-    dt = p["date_to"]   or "*"
+    dt = p["date_to"] or "*"
     if p["date_from"] or p["date_to"]:
         fqs.append(f"{cfg.FIELD_DATE}:[{df}T00:00:00Z TO {dt}T23:59:59Z]")
 
@@ -152,22 +209,22 @@ def build_solr_params(p: dict) -> tuple[str, dict]:
         fqs.append(p["extra_fq"])
 
     params: dict = {
-        "defType":   p["parser"],
-        "q.op":      p["operator"],
-        "sort":      p["sort_val"],
-        "rows":      p["rows"],
-        "start":     p["start"],
+        "defType": p["parser"],
+        "q.op": p["operator"],
+        "sort": p["sort_val"],
+        "rows": p["rows"],
+        "start": p["start"],
         # Facets
-        "facet":        "true",
-        "facet.field":  cfg.FACET_FIELDS,
+        "facet": "true",
+        "facet.field": cfg.FACET_FIELDS,
         "facet.mincount": 1,
-        "facet.limit":  20,
+        "facet.limit": 20,
         # Highlighting
-        "hl":          "true" if p["hl_enabled"] else "false",
-        "hl.fl":       cfg.HL_FIELDS,
+        "hl": "true" if p["hl_enabled"] else "false",
+        "hl.fl": cfg.HL_FIELDS,
         "hl.snippets": cfg.HL_SNIPPETS,
         "hl.fragsize": cfg.HL_FRAG_SIZE,
-        "hl.simple.pre":  cfg.HL_PRE_TAG,
+        "hl.simple.pre": cfg.HL_PRE_TAG,
         "hl.simple.post": cfg.HL_POST_TAG,
         "hl.requireFieldMatch": "false",
     }
@@ -180,12 +237,12 @@ def build_solr_params(p: dict) -> tuple[str, dict]:
 
     # Group by file / repository
     if p["group_by"]:
-        params["group"]         = "true"
-        params["group.field"]   = p["group_by"]
-        params["group.limit"]   = 3      # top 3 docs per group
-        params["group.ngroups"] = "true" # count distinct groups
+        params["group"] = "true"
+        params["group.field"] = p["group_by"]
+        params["group.limit"] = 3  # top 3 docs per group
+        params["group.ngroups"] = "true"  # count distinct groups
         # When grouping, sort within each group by score
-        params["group.sort"]    = "score desc"
+        params["group.sort"] = "score desc"
 
     if p["boost_func"]:
         params["bf"] = p["boost_func"]
@@ -207,8 +264,16 @@ def execute_search(p: dict) -> dict:
         results = solr.search(q, **params)
     except pysolr.SolrError as exc:
         app.logger.error("Solr error: %s", exc)
-        return {"error": str(exc), "docs": [], "groups": [], "num_found": 0,
-                "facets": {}, "highlighting": {}, "debug": {}, "grouped": False}
+        return {
+            "error": str(exc),
+            "docs": [],
+            "groups": [],
+            "num_found": 0,
+            "facets": {},
+            "highlighting": {},
+            "debug": {},
+            "grouped": False,
+        }
 
     # Parse facets
     facets: dict[str, list] = {}
@@ -229,39 +294,46 @@ def execute_search(p: dict) -> dict:
     num_found = 0
     if is_grouped:
         group_field_data = grouped_response.get(p["group_by"], {})
-        num_found = group_field_data.get("ngroups", 0) or group_field_data.get("matches", 0)
+        num_found = group_field_data.get("ngroups", 0) or group_field_data.get(
+            "matches", 0
+        )
         for grp in group_field_data.get("groups", []):
-            groups.append({
-                "key":      grp.get("groupValue", "(unknown)"),
-                "count":    grp.get("doclist", {}).get("numFound", 0),
-                "docs":     grp.get("doclist", {}).get("docs", []),
-            })
+            groups.append(
+                {
+                    "key": grp.get("groupValue", "(unknown)"),
+                    "count": grp.get("doclist", {}).get("numFound", 0),
+                    "docs": grp.get("doclist", {}).get("docs", []),
+                }
+            )
         total_pages = math.ceil(len(groups) / p["rows"]) if p["rows"] else 1
         docs = []
     else:
-        num_found   = results.hits
+        num_found = results.hits
         total_pages = math.ceil(num_found / p["rows"]) if p["rows"] else 1
-        docs        = list(results)
+        docs = list(results)
 
     return {
-        "docs":         docs,
-        "groups":       groups,
-        "grouped":      is_grouped,
-        "num_found":    num_found,
-        "total_pages":  total_pages,
-        "page":         p["page"],
-        "rows":         p["rows"],
-        "start":        p["start"],
-        "facets":       facets,
-        "highlighting": results.highlighting if hasattr(results, "highlighting") else {},
-        "debug":        results.debug if hasattr(results, "debug") else {},
-        "error":        None,
-        "q":            q,
-        "params":       params,
+        "docs": docs,
+        "groups": groups,
+        "grouped": is_grouped,
+        "num_found": num_found,
+        "total_pages": total_pages,
+        "page": p["page"],
+        "rows": p["rows"],
+        "start": p["start"],
+        "facets": facets,
+        "highlighting": (
+            results.highlighting if hasattr(results, "highlighting") else {}
+        ),
+        "debug": results.debug if hasattr(results, "debug") else {},
+        "error": None,
+        "q": q,
+        "params": params,
     }
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
+
 
 @app.route("/")
 def index():
@@ -298,8 +370,10 @@ def api_search():
     data = execute_search(p)
     # Make docs JSON-serialisable (values may be lists)
     data["docs"] = [
-        {k: (v[0] if isinstance(v, list) and len(v) == 1 else v)
-         for k, v in doc.items()}
+        {
+            k: (v[0] if isinstance(v, list) and len(v) == 1 else v)
+            for k, v in doc.items()
+        }
         for doc in data["docs"]
     ]
     return jsonify(data)

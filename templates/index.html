@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 </head>
 
 <body>
@@ -19,7 +19,7 @@
     <!-- ── Header ──────────────────────────────────────────────────────────────── -->
     <header class="site-header">
         <div class="header-inner">
-            <a href="/" class="logo">
+            <a href="{{ url_for('index') }}" class="logo">
                 <span class="logo-icon">⬡</span>
                 <span class="logo-text">SolrSearch</span>
             </a>
@@ -41,255 +41,279 @@
                 <p class="hero-subtitle">Powered by Apache Solr · English · 日本語 · Tiếng Việt</p>
                 {% endif %}
 
-                <form id="searchForm" action="/search" method="GET" autocomplete="off">
-                    <div class="search-box">
-                        <input type="text" name="q" id="queryInput" class="search-input"
-                            placeholder="Enter keywords, code snippets, phrases…"
-                            value="{{ params.query if params else '' }}" autofocus spellcheck="false" />
-                        <button type="submit" class="search-btn" id="searchBtn">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="11" cy="11" r="8" />
-                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                            Search
-                        </button>
-                    </div>
+                <form id="searchForm" action="{{ url_for('search') }}" method="GET" autocomplete="off">
+                    <div class="search-config-panel">
+                        <div class="adv-panel" id="advPanel"
+                            style="display:grid; border-bottom: none; border-radius: var(--radius) var(--radius) 0 0;">
 
-                    <!-- Quick filter pills -->
-                    <div class="quick-filters">
-                        {% for lang in languages %}
-                        <label class="pill {% if params and params.language == lang.value %}active{% endif %}">
-                            <input type="radio" name="lang" value="{{ lang.value }}" {% if params and
-                                params.language==lang.value %}checked{% endif %}
-                                onchange="document.getElementById('searchForm').submit()" />
-                            {{ lang.label }}
-                        </label>
-                        {% endfor %}
-                    </div>
 
-                    <!-- ── Advanced Options Panel ─────────────────────────────────────── -->
-                    <div class="adv-toggle-row">
-                        <button type="button" class="adv-toggle" id="advToggle" aria-expanded="false">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <line x1="4" y1="6" x2="20" y2="6" />
-                                <line x1="8" y1="12" x2="16" y2="12" />
-                                <line x1="10" y1="18" x2="14" y2="18" />
-                            </svg>
-                            Advanced Options
-                        </button>
-                        {% if params and (params.file_type or params.date_from or params.date_to or params.fuzzy != '0'
-                        or params.operator != 'OR' or params.parser != 'edismax' or params.phrase_mode or
-                        params.boost_func or params.extra_fq or params.debug_mode
-                        or params.mm_val or params.group_by or params.proximity != '0') %}
-                        <span class="adv-badge">Active</span>
-                        {% endif %}
-                    </div>
-
-                    <div class="adv-panel" id="advPanel" {% if params and (params.file_type or params.date_from or
-                        params.date_to or params.fuzzy !='0' or params.operator !='OR' or params.parser !='edismax' or
-                        params.phrase_mode or params.boost_func or params.extra_fq or params.debug_mode)
-                        %}style="display:grid" {% endif %}>
-
-                        <!-- Row 1 -->
-                        <div class="adv-group">
-                            <label class="adv-label">Query Parser</label>
-                            <div class="select-wrap">
-                                <select name="parser" id="parserSelect">
-                                    <option value="edismax" {% if not params or params.parser=='edismax' %}selected{%
-                                        endif %}>eDisMax (recommended)</option>
-                                    <option value="lucene" {% if params and params.parser=='lucene' %}selected{% endif
-                                        %}>Lucene (Standard)</option>
-                                    <option value="dismax" {% if params and params.parser=='dismax' %}selected{% endif
-                                        %}>DisMax</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="adv-group">
-                            <label class="adv-label">Default Operator</label>
-                            <div class="btn-group">
-                                <label class="btn-opt {% if not params or params.operator == 'OR' %}active{% endif %}">
-                                    <input type="radio" name="op" value="OR" {% if not params or params.operator=='OR'
-                                        %}checked{% endif %} /> OR
+                            <!-- Row 1 -->
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Query Parser
+                                    <span class="tooltip"
+                                        title="eDisMax: Thông minh, hỗ trợ boost fields. Lucene: Chuẩn, hỗ trợ query phức tạp. DisMax: Đơn giản hơn.">?</span>
                                 </label>
-                                <label class="btn-opt {% if params and params.operator == 'AND' %}active{% endif %}">
-                                    <input type="radio" name="op" value="AND" {% if params and params.operator=='AND'
-                                        %}checked{% endif %} /> AND
+                                <div class="select-wrap">
+                                    <select name="parser" id="parserSelect">
+                                        <option value="edismax" {% if not params or params.parser=='edismax'
+                                            %}selected{% endif %}>eDisMax (recommended)</option>
+                                        <option value="lucene" {% if params and params.parser=='lucene' %}selected{%
+                                            endif %}>Lucene (Standard)</option>
+                                        <option value="dismax" {% if params and params.parser=='dismax' %}selected{%
+                                            endif %}>DisMax</option>
+                                    </select>
+                                </div>
+                                <p class="adv-guide">Cơ chế phân tích câu truy vấn của Solr.</p>
+                            </div>
+
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Default Operator
+                                    <span class="tooltip"
+                                        title="OR: Chỉ cần khớp 1 từ. AND: Phải khớp tất cả các từ trong câu tìm kiếm.">?</span>
+                                </label>
+                                <div class="btn-group">
+                                    <label
+                                        class="btn-opt {% if not params or params.operator == 'OR' %}active{% endif %}">
+                                        <input type="radio" name="op" value="OR" {% if not params or
+                                            params.operator=='OR' %}checked{% endif %} /> OR
+                                    </label>
+                                    <label
+                                        class="btn-opt {% if params and params.operator == 'AND' %}active{% endif %}">
+                                        <input type="radio" name="op" value="AND" {% if params and
+                                            params.operator=='AND' %}checked{% endif %} /> AND
+                                    </label>
+                                </div>
+                                <p class="adv-guide">Cách kết hợp các từ khóa khi tìm kiếm.</p>
+                            </div>
+
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    File Type
+                                    <span class="tooltip"
+                                        title="Lọc kết quả dựa trên định dạng tệp tin (mở rộng).">?</span>
+                                </label>
+                                <div class="select-wrap">
+                                    <select name="file_type">
+                                        {% for ft in file_types %}
+                                        <option value="{{ ft.value }}" {% if params and params.file_type==ft.value
+                                            %}selected{% endif %}>{{ ft.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <p class="adv-guide">Giới hạn tìm kiếm trong một loại tệp nhất định.</p>
+                            </div>
+
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Results per Page
+                                    <span class="tooltip"
+                                        title="Số lượng kết quả hiển thị tối đa trên một trang.">?</span>
+                                </label>
+                                <div class="select-wrap">
+                                    <select name="rows">
+                                        {% for n in [5, 10, 20, 50] %}
+                                        <option value="{{ n }}" {% if params and params.rows==n %}selected{% endif %}>{{
+                                            n
+                                            }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <p class="adv-guide">Kiểm soát mật độ thông tin trên màn hình.</p>
+                            </div>
+
+                            <!-- Row 2 -->
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Sort By
+                                    <span class="tooltip"
+                                        title="Relevance: Theo độ liên quan. Newest: Tệp mới nhất. Title: Theo bảng chữ cái.">?</span>
+                                </label>
+                                <div class="select-wrap">
+                                    <select name="sort">
+                                        {% for s in sort_options %}
+                                        <option value="{{ s.value }}" {% if params and params.sort_val==s.value
+                                            %}selected{% endif %}>{{ s.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <p class="adv-guide">Thứ tự ưu tiên hiển thị kết quả.</p>
+                            </div>
+
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Fuzzy Distance
+                                    <span class="tooltip"
+                                        title="0: Khớp chính xác. 1: Cho phép sai 1 ký tự. 2: Cho phép sai 2 ký tự (VD: 'log' khớp 'lag').">?</span>
+                                </label>
+                                <div class="range-wrap">
+                                    <input type="range" name="fuzzy" id="fuzzyRange" min="0" max="2" step="1"
+                                        value="{{ params.fuzzy if params else '0' }}"
+                                        oninput="document.getElementById('fuzzyVal').textContent=this.value" />
+                                    <span class="range-val" id="fuzzyVal">{{ params.fuzzy if params else '0' }}</span>
+                                </div>
+                                <p class="adv-guide">Tìm kiếm mờ (cho phép gõ sai chính tả nhẹ).</p>
+                            </div>
+
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Phrase Mode
+                                    <span class="tooltip" title="Tìm chính xác nguyên cụm từ theo đúng thứ tự.">?</span>
+                                </label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" name="phrase" value="1" id="phraseToggle" {% if params and
+                                        params.phrase_mode %}checked{% endif %} />
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label">Exact phrase search</span>
+                                </label>
+                                <p class="adv-guide">Đặt toàn bộ câu vào dấu "ngoặc kép".</p>
+                            </div>
+
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Proximity Search (slop)
+                                    <span class="tooltip"
+                                        title="Khoảng cách tối đa giữa các từ. VD: 'login error'~5 nghĩa là 2 từ này cách nhau tối đa 5 vị trí.">?</span>
+                                </label>
+                                <div class="range-wrap">
+                                    <input type="range" name="proximity" id="proximityRange" min="0" max="20" step="1"
+                                        value="{{ params.proximity if params else '0' }}"
+                                        oninput="document.getElementById('proximityVal').textContent=this.value;updateProximityHint(this.value)" />
+                                    <span class="range-val" id="proximityVal">{{ params.proximity if params else '0'
+                                        }}</span>
+                                </div>
+                                <p class="adv-guide">Tìm các từ đứng gần nhau trong văn bản.</p>
+                                <p class="adv-hint" id="proximityHint"
+                                    style="display:{% if params and params.proximity != '0' %}block{% else %}none{% endif %}">
+                                    Query:
+                                    <code>"{{ params.query if params else '…' }}"~{{ params.proximity if params else '0' }}</code>
+                                </p>
+                            </div>
+
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Highlighting
+                                    <span class="tooltip"
+                                        title="Tìm và tô đậm các từ khóa khớp trong nội dung văn bản.">?</span>
+                                </label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" name="hl" value="1" id="hlToggle" {% if not params or
+                                        params.hl_enabled %}checked{% endif %} />
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label">Show snippets</span>
+                                </label>
+                                <p class="adv-guide">Trích dẫn đoạn văn chứa từ khóa.</p>
+                            </div>
+
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Min Should Match (mm)
+                                    <span class="tooltip"
+                                        title="Số term tối thiểu phải match. VD: '75%' = 75% số từ, '3' = ít nhất 3 từ, '2&lt;75%' = nếu &gt;2 từ thì 75% phải match. Chỉ áp dụng cho edismax.">?</span>
+                                </label>
+                                <input type="text" name="mm" class="text-input" id="mmInput"
+                                    placeholder="e.g. 75%  or  3  or  2&lt;75%"
+                                    value="{{ params.mm_val if params else '' }}" />
+                                <p class="adv-hint" id="mmHint"
+                                    style="display:{% if params and params.mm_val %}block{% else %}none{% endif %}">
+                                    {% if params and params.mm_val %}
+                                    Active: at least <code>{{ params.mm_val }}</code> of query terms must match
+                                    {% endif %}
+                                </p>
+                            </div>
+
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Group Results By
+                                    <span class="tooltip"
+                                        title="Gom nhóm kết quả. VD: 'File Path' để xem các đoạn match trong cùng một tệp.">?</span>
+                                </label>
+                                <div class="select-wrap">
+                                    <select name="group_by" id="groupBySelect">
+                                        <option value="" {% if not params or not params.group_by %}selected{% endif %}>
+                                            No Grouping</option>
+                                        <option value="file_path" {% if params and params.group_by=='file_path'
+                                            %}selected{% endif %}>By File Path</option>
+                                        <option value="repository" {% if params and params.group_by=='repository'
+                                            %}selected{% endif %}>By Repository</option>
+                                        <option value="file_type" {% if params and params.group_by=='file_type'
+                                            %}selected{% endif %}>By File Type</option>
+                                        <option value="author" {% if params and params.group_by=='author' %}selected{%
+                                            endif %}>By Author</option>
+                                        <option value="language" {% if params and params.group_by=='language'
+                                            %}selected{% endif %}>By Language</option>
+                                    </select>
+                                </div>
+                                <p class="adv-guide">Trình bày kết quả theo nhóm logic.</p>
+                            </div>
+
+                            <!-- Row 3 — Date Range -->
+                            <div class="adv-group adv-group--wide">
+                                <label class="adv-label">Date Range</label>
+                                <div class="date-range">
+                                    <input type="date" name="date_from" placeholder="From"
+                                        value="{{ params.date_from if params else '' }}" />
+                                    <span class="date-sep">→</span>
+                                    <input type="date" name="date_to" placeholder="To"
+                                        value="{{ params.date_to if params else '' }}" />
+                                </div>
+                            </div>
+
+                            <!-- Row 4 — Power user -->
+                            <div class="adv-group adv-group--wide">
+                                <label class="adv-label">
+                                    Boost Function (bf)
+                                    <span class="tooltip"
+                                        title="Solr bf parameter e.g. recip(rord(last_modified),1,1000,1000)">?</span>
+                                </label>
+                                <input type="text" name="bf" class="text-input"
+                                    placeholder="e.g. recip(rord(last_modified),1,1000,1000)"
+                                    value="{{ params.boost_func if params else '' }}" />
+                            </div>
+
+                            <div class="adv-group adv-group--wide">
+                                <label class="adv-label">
+                                    Raw Filter Query (fq)
+                                    <span class="tooltip"
+                                        title="Direct Solr filter query e.g. author:alice OR tags:python">?</span>
+                                </label>
+                                <input type="text" name="fq" class="text-input"
+                                    placeholder="e.g. author:alice AND tags:api"
+                                    value="{{ params.extra_fq if params else '' }}" />
+                            </div>
+
+                            <div class="adv-group">
+                                <label class="adv-label">Debug</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" name="debug" value="1" id="debugToggle" {% if params and
+                                        params.debug_mode %}checked{% endif %} />
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label">Show parsed query</span>
                                 </label>
                             </div>
-                        </div>
 
-                        <div class="adv-group">
-                            <label class="adv-label">File Type</label>
-                            <div class="select-wrap">
-                                <select name="file_type">
-                                    {% for ft in file_types %}
-                                    <option value="{{ ft.value }}" {% if params and params.file_type==ft.value
-                                        %}selected{% endif %}>{{ ft.label }}</option>
-                                    {% endfor %}
-                                </select>
+                            <div class="adv-group adv-actions">
+                                <button type="button" class="btn-reset" id="resetBtn">Reset All</button>
+                            </div>
+                        </div><!-- /adv-panel -->
+
+                        <div class="search-execution-area">
+                            <div class="search-box">
+                                <input type="text" name="q" id="queryInput" class="search-input"
+                                    placeholder="Enter keywords, snippets, or phrases..."
+                                    value="{{ params.query if params else '' }}" autofocus spellcheck="false" />
+                                <button type="submit" class="search-btn" id="searchBtn">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <circle cx="11" cy="11" r="8" />
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    </svg>
+                                    Search
+                                </button>
                             </div>
                         </div>
-
-                        <div class="adv-group">
-                            <label class="adv-label">Results per Page</label>
-                            <div class="select-wrap">
-                                <select name="rows">
-                                    {% for n in [5, 10, 20, 50] %}
-                                    <option value="{{ n }}" {% if params and params.rows==n %}selected{% endif %}>{{ n
-                                        }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Row 2 -->
-                        <div class="adv-group">
-                            <label class="adv-label">Sort By</label>
-                            <div class="select-wrap">
-                                <select name="sort">
-                                    {% for s in sort_options %}
-                                    <option value="{{ s.value }}" {% if params and params.sort_val==s.value %}selected{%
-                                        endif %}>{{ s.label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="adv-group">
-                            <label class="adv-label">
-                                Fuzzy Distance
-                                <span class="tooltip"
-                                    title="0 = exact, 1 = allow 1 edit difference, 2 = allow 2 edits">?</span>
-                            </label>
-                            <div class="range-wrap">
-                                <input type="range" name="fuzzy" id="fuzzyRange" min="0" max="2" step="1"
-                                    value="{{ params.fuzzy if params else '0' }}"
-                                    oninput="document.getElementById('fuzzyVal').textContent=this.value" />
-                                <span class="range-val" id="fuzzyVal">{{ params.fuzzy if params else '0' }}</span>
-                            </div>
-                        </div>
-
-                        <div class="adv-group">
-                            <label class="adv-label">Phrase Mode</label>
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="phrase" value="1" id="phraseToggle" {% if params and
-                                    params.phrase_mode %}checked{% endif %} />
-                                <span class="toggle-slider"></span>
-                                <span class="toggle-label">Exact phrase search</span>
-                            </label>
-                        </div>
-
-                        <div class="adv-group">
-                            <label class="adv-label">
-                                Proximity Search (slop)
-                                <span class="tooltip" title="Tìm 2+ từ gần nhau trong N vị trí. Ví dụ: &quot;login error&quot;~5 → 2 từ này cách nhau tối đa 5 từ. Overrides Phrase &amp; Fuzzy mode.">?</span>
-                            </label>
-                            <div class="range-wrap">
-                                <input type="range" name="proximity" id="proximityRange" min="0" max="20" step="1"
-                                    value="{{ params.proximity if params else '0' }}"
-                                    oninput="document.getElementById('proximityVal').textContent=this.value;updateProximityHint(this.value)" />
-                                <span class="range-val" id="proximityVal">{{ params.proximity if params else '0' }}</span>
-                            </div>
-                            <p class="adv-hint" id="proximityHint" style="display:{% if params and params.proximity != '0' %}block{% else %}none{% endif %}">
-                                Query: <code>"{{ params.query if params else '…' }}"~{{ params.proximity if params else '0' }}</code>
-                            </p>
-                        </div>
-
-                        <div class="adv-group">
-                            <label class="adv-label">Highlighting</label>
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="hl" value="1" id="hlToggle" {% if not params or
-                                    params.hl_enabled %}checked{% endif %} />
-                                <span class="toggle-slider"></span>
-                                <span class="toggle-label">Show snippets</span>
-                            </label>
-                        </div>
-
-                        <div class="adv-group">
-                            <label class="adv-label">
-                                Min Should Match (mm)
-                                <span class="tooltip" title="Số term tối thiểu phải match. VD: '75%' = 75% số từ, '3' = ít nhất 3 từ, '2&lt;75%' = nếu &gt;2 từ thì 75% phải match. Chỉ áp dụng cho edismax.">?</span>
-                            </label>
-                            <input type="text" name="mm" class="text-input" id="mmInput"
-                                placeholder="e.g. 75%  or  3  or  2&lt;75%"
-                                value="{{ params.mm_val if params else '' }}" />
-                            <p class="adv-hint" id="mmHint" style="display:{% if params and params.mm_val %}block{% else %}none{% endif %}">
-                                {% if params and params.mm_val %}
-                                Active: at least <code>{{ params.mm_val }}</code> of query terms must match
-                                {% endif %}
-                            </p>
-                        </div>
-
-                        <div class="adv-group">
-                            <label class="adv-label">
-                                Group Results By
-                                <span class="tooltip" title="Nhóm kết quả theo field. VD: file_path → gom các đoạn match cùng file. repository → gom theo repo.">?</span>
-                            </label>
-                            <div class="select-wrap">
-                                <select name="group_by" id="groupBySelect">
-                                    <option value="" {% if not params or not params.group_by %}selected{% endif %}>No Grouping</option>
-                                    <option value="file_path"   {% if params and params.group_by == 'file_path'   %}selected{% endif %}>By File Path</option>
-                                    <option value="repository"  {% if params and params.group_by == 'repository'  %}selected{% endif %}>By Repository</option>
-                                    <option value="file_type"   {% if params and params.group_by == 'file_type'   %}selected{% endif %}>By File Type</option>
-                                    <option value="author"      {% if params and params.group_by == 'author'      %}selected{% endif %}>By Author</option>
-                                    <option value="language"    {% if params and params.group_by == 'language'    %}selected{% endif %}>By Language</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Row 3 — Date Range -->
-                        <div class="adv-group adv-group--wide">
-                            <label class="adv-label">Date Range</label>
-                            <div class="date-range">
-                                <input type="date" name="date_from" placeholder="From"
-                                    value="{{ params.date_from if params else '' }}" />
-                                <span class="date-sep">→</span>
-                                <input type="date" name="date_to" placeholder="To"
-                                    value="{{ params.date_to if params else '' }}" />
-                            </div>
-                        </div>
-
-                        <!-- Row 4 — Power user -->
-                        <div class="adv-group adv-group--wide">
-                            <label class="adv-label">
-                                Boost Function (bf)
-                                <span class="tooltip"
-                                    title="Solr bf parameter e.g. recip(rord(last_modified),1,1000,1000)">?</span>
-                            </label>
-                            <input type="text" name="bf" class="text-input"
-                                placeholder="e.g. recip(rord(last_modified),1,1000,1000)"
-                                value="{{ params.boost_func if params else '' }}" />
-                        </div>
-
-                        <div class="adv-group adv-group--wide">
-                            <label class="adv-label">
-                                Raw Filter Query (fq)
-                                <span class="tooltip"
-                                    title="Direct Solr filter query e.g. author:alice OR tags:python">?</span>
-                            </label>
-                            <input type="text" name="fq" class="text-input" placeholder="e.g. author:alice AND tags:api"
-                                value="{{ params.extra_fq if params else '' }}" />
-                        </div>
-
-                        <div class="adv-group">
-                            <label class="adv-label">Debug</label>
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="debug" value="1" id="debugToggle" {% if params and
-                                    params.debug_mode %}checked{% endif %} />
-                                <span class="toggle-slider"></span>
-                                <span class="toggle-label">Show parsed query</span>
-                            </label>
-                        </div>
-
-                        <div class="adv-group adv-actions">
-                            <button type="button" class="btn-reset" id="resetBtn">Reset All</button>
-                        </div>
-
-                    </div><!-- /adv-panel -->
                 </form>
             </div>
         </section><!-- /hero -->
@@ -312,7 +336,7 @@
                     <ul class="facet-list">
                         {% for val, cnt in pairs %}
                         <li class="facet-item">
-                            <a href="{{ request.url | replace('page='+params.page|string, 'page=1') }}&{{ field }}={{ val | urlencode }}"
+                            <a href="{{ request.url | add_facet(field, val) }}"
                                 class="facet-link {% if (params.language == val) or (params.file_type == val) %}facet-link--active{% endif %}">
                                 <span class="facet-val">{{ val }}</span>
                                 <span class="facet-cnt">{{ cnt }}</span>
@@ -364,8 +388,10 @@
                         {% set hl = search.highlighting.get(doc_id, {}) %}
                         <li class="result-card result-card--nested">
                             <div class="result-header">
-                                {% if doc.get('file_type') %}<span class="badge badge--type">{{ doc.file_type }}</span>{% endif %}
-                                {% if doc.get('language') %}<span class="badge badge--lang">{{ doc.language }}</span>{% endif %}
+                                {% if doc.get('file_type') %}<span class="badge badge--type">{{ doc.file_type
+                                    }}</span>{% endif %}
+                                {% if doc.get('language') %}<span class="badge badge--lang">{{ doc.language }}</span>{%
+                                endif %}
                             </div>
                             {% set title_hl = hl.get('title', []) %}
                             <h3 class="result-title">
@@ -374,16 +400,21 @@
                             {% if doc.get('file_path') and doc.file_path != grp.key %}
                             <p class="result-path">📄 {{ doc.file_path }}</p>
                             {% endif %}
-                            {% set content_hl = hl.get('content', []) or hl.get('source_code_content', []) or hl.get('ocr_content', []) %}
-                            {% set snip_source = 'code' if hl.get('source_code_content') else ('ocr' if hl.get('ocr_content') else 'text') %}
+                            {% set content_hl = hl.get('content', []) or hl.get('source_code_content', []) or
+                            hl.get('ocr_content', []) %}
+                            {% set snip_source = 'code' if hl.get('source_code_content') else ('ocr' if
+                            hl.get('ocr_content') else 'text') %}
                             {% if content_hl %}
-                            <div class="result-snippet">
-                                {% if snip_source == 'code' %}<span class="snip-badge snip-badge--code">⌨ code</span>{% endif %}
-                                {% if snip_source == 'ocr' %}<span class="snip-badge snip-badge--ocr">📷 ocr</span>{% endif %}
+                            <div class="result-snippet {% if snip_source == 'code' %}result-snippet--code{% endif %}">
+                                {% if snip_source == 'code' %}<span class="snip-badge snip-badge--code">⌨ code</span>{%
+                                endif %}
+                                {% if snip_source == 'ocr' %}<span class="snip-badge snip-badge--ocr">📷 ocr</span>{%
+                                endif %}
                                 {% for snip in content_hl[:2] %}<p>…{{ snip | safe }}…</p>{% endfor %}
                             </div>
                             {% elif doc.get('source_code_content') %}
-                            <p class="result-snippet-plain">⌨ {{ doc.source_code_content[:200] }}…</p>
+                            <p class="result-snippet-plain result-snippet-plain--code">⌨ {{
+                                doc.source_code_content[:200] }}…</p>
                             {% elif doc.get('ocr_content') %}
                             <p class="result-snippet-plain">📷 {{ doc.ocr_content[:200] }}…</p>
                             {% elif doc.get('content') %}
@@ -393,7 +424,8 @@
                         {% endfor %}
                     </ol>
                     {% if grp.count > 3 %}
-                    <p class="group-more">+ {{ grp.count - 3 }} more matches in this {{ params.group_by | replace('_',' ') }}</p>
+                    <p class="group-more">+ {{ grp.count - 3 }} more matches in this {{ params.group_by | replace('_','
+                        ') }}</p>
                     {% endif %}
                 </details>
                 {% endfor %}
@@ -439,18 +471,23 @@
                         <p class="result-path">📄 {{ doc.file_path }}</p>
                         {% endif %}
 
-                        {% set content_hl = hl.get('source_code_content', []) or hl.get('content', []) or hl.get('ocr_content', []) %}
-                        {% set snip_source = 'code' if hl.get('source_code_content') else ('ocr' if hl.get('ocr_content') else 'text') %}
+                        {% set content_hl = hl.get('source_code_content', []) or hl.get('content', []) or
+                        hl.get('ocr_content', []) %}
+                        {% set snip_source = 'code' if hl.get('source_code_content') else ('ocr' if
+                        hl.get('ocr_content') else 'text') %}
                         {% if content_hl %}
-                        <div class="result-snippet">
-                            {% if snip_source == 'code' %}<span class="snip-badge snip-badge--code">⌨ code</span>{% endif %}
-                            {% if snip_source == 'ocr' %}<span class="snip-badge snip-badge--ocr">📷 ocr</span>{% endif %}
+                        <div class="result-snippet {% if snip_source == 'code' %}result-snippet--code{% endif %}">
+                            {% if snip_source == 'code' %}<span class="snip-badge snip-badge--code">⌨ code</span>{%
+                            endif %}
+                            {% if snip_source == 'ocr' %}<span class="snip-badge snip-badge--ocr">📷 ocr</span>{% endif
+                            %}
                             {% for snip in content_hl %}
                             <p>…{{ snip | safe }}…</p>
                             {% endfor %}
                         </div>
                         {% elif doc.get('source_code_content') %}
-                        <p class="result-snippet-plain">⌨ {{ doc.source_code_content[:300] }}…</p>
+                        <p class="result-snippet-plain result-snippet-plain--code">⌨ {{ doc.source_code_content[:300]
+                            }}…</p>
                         {% elif doc.get('ocr_content') %}
                         <p class="result-snippet-plain">📷 {{ doc.ocr_content[:300] }}…</p>
                         {% elif doc.get('content') %}
@@ -470,18 +507,17 @@
                 <!-- Pagination -->
                 {% if search.total_pages > 1 %}
                 <nav class="pagination" aria-label="Pagination">
-                    {% set base = request.url | remove_param('page') %}
                     {% if search.page > 1 %}
-                    <a href="{{ base }}&page={{ search.page - 1 }}" class="page-btn">← Prev</a>
+                    <a href="{{ request.url | set_param('page', search.page - 1) }}" class="page-btn">← Prev</a>
                     {% endif %}
 
                     {% for p_num in range([1, search.page - 2]|max, [search.total_pages + 1, search.page + 3]|min) %}
-                    <a href="{{ base }}&page={{ p_num }}"
+                    <a href="{{ request.url | set_param('page', p_num) }}"
                         class="page-btn {% if p_num == search.page %}page-btn--active{% endif %}">{{ p_num }}</a>
                     {% endfor %}
 
-                    {% if search.page < search.total_pages %} <a href="{{ base }}&page={{ search.page + 1 }}"
-                        class="page-btn">Next →</a>
+                    {% if search.page < search.total_pages %} <a
+                        href="{{ request.url | set_param('page', search.page + 1) }}" class="page-btn">Next →</a>
                         {% endif %}
                 </nav>
                 {% endif %}
@@ -506,12 +542,7 @@
 
     </main>
 
-    <footer class="site-footer">
-        <p>Powered by <strong>Apache Solr</strong> &amp; <strong>Flask</strong> · Multilingual: EN · 日本語 · Tiếng Việt
-        </p>
-    </footer>
-
-    <script src="/static/app.js"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 
 </html>
