@@ -7,30 +7,32 @@ from __future__ import annotations
 import math
 import logging
 from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 from werkzeug.middleware.proxy_fix import ProxyFix
 import pysolr
 import config as cfg
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 app = Flask(__name__)
+
+# ── Subdirectory & Proxy Handling ──────────────────────────────────────────────
+# 1. Standard Proxy Handling (Works for IIS/Nginx etc.)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# ── Local Subdirectory Simulation ──────────────────────────────────────────────
-if cfg.APP_PREFIX:
-    from werkzeug.middleware.dispatcher import DispatcherMiddleware
-    from flask import Response
+# 2. Local Subdirectory Simulation
+# This is only for local development to simulate how it behaves in a sub-folder.
+# In Production (IIS), set SIMULATE_SUBDIRECTORY = False.
+if cfg.APP_PREFIX and getattr(cfg, "SIMULATE_SUBDIRECTORY", False):
 
-    # Ensure prefix starts with / and ends without /
-    prefix = cfg.APP_PREFIX.strip()
-    if not prefix.startswith("/"):
-        prefix = "/" + prefix
-    if prefix.endswith("/"):
-        prefix = prefix.rstrip("/")
+    prefix = "/" + cfg.APP_PREFIX.strip("/")
 
     def root_app(environ, start_response):
-        """Redirect root traffic to the simulated subdirectory."""
+        # If we are behind a proxy, don't perform the simulation redirect
+        # to avoid "Too many redirects" loop.
+        if "HTTP_X_FORWARDED_PREFIX" in environ or "HTTP_X_FORWARDED_FOR" in environ:
+            return app.wsgi_app(environ, start_response)
+
         path = environ.get("PATH_INFO", "")
-        # Only redirect if we are at the literal root
         if path == "/" or not path:
             url = prefix + "/"
             res = Response(
@@ -38,7 +40,6 @@ if cfg.APP_PREFIX:
             )
             return res(environ, start_response)
 
-        # Otherwise return 404 for paths not covered by the dispatcher
         res = Response("Not Found", status=404)
         return res(environ, start_response)
 

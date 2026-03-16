@@ -11,7 +11,8 @@ SOLR_TIMEOUT = 10                                    # seconds
 DEFAULT_ROWS = 10          # results per page
 DEFAULT_OPERATOR = "OR"    # "OR" | "AND"
 DEFAULT_PARSER = "edismax" # "lucene" | "edismax"
-APP_PREFIX = "ocr-search"            # e.g. "/ocr-search" to simulate subdirectory locally
+APP_PREFIX = "ocr-search"            # e.g. "ocr-search" for the sub-directory name
+SIMULATE_SUBDIRECTORY = True         # Set to False in Production/IIS
 
 # ── Schema Field Names  ────────────────────────────────────────────────────────
 # Adjust these to match your actual Solr schema field names.
