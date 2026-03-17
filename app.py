@@ -106,6 +106,7 @@ def parse_form(args: dict) -> dict:
 
     # --- Query modifiers ---
     phrase_mode = args.get("phrase", "") == "1"
+    exact_terms = args.get("exact", "") == "1"
     fuzzy = args.get("fuzzy", "0").strip()
     operator = args.get("op", cfg.DEFAULT_OPERATOR)
     parser = args.get("parser", cfg.DEFAULT_PARSER)
@@ -141,6 +142,7 @@ def parse_form(args: dict) -> dict:
     return dict(
         query=query,
         phrase_mode=phrase_mode,
+        exact_terms=exact_terms,
         fuzzy=fuzzy,
         proximity=proximity,
         operator=operator,
@@ -177,8 +179,13 @@ def build_solr_params(p: dict) -> tuple[str, dict]:
         q_clean = q.strip('"')
         q = f'"{q_clean}"~{prox}'
     else:
-        # Apply fuzzy to each individual term (only when not phrase/proximity mode)
-        if q != "*:*" and not p["phrase_mode"]:
+        # Exact terms (quote each word independently)
+        if q != "*:*" and p["exact_terms"] and not p["phrase_mode"]:
+            # Wrap each term in quotes to bypass splitting/fuzzying
+            q = " ".join(f'"{term}"' if not term.startswith("-") else term for term in q.split())
+
+        # Apply fuzzy to each individual term (only when not phrase/exact/proximity mode)
+        elif q != "*:*" and not p["phrase_mode"]:
             try:
                 fuzz = int(p["fuzzy"])
                 if fuzz > 0:
@@ -228,6 +235,7 @@ def build_solr_params(p: dict) -> tuple[str, dict]:
         "hl.simple.pre": cfg.HL_PRE_TAG,
         "hl.simple.post": cfg.HL_POST_TAG,
         "hl.requireFieldMatch": "false",
+        "hl.encoder": "html",
     }
 
     # edismax specific

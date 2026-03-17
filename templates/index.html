@@ -165,9 +165,24 @@
                                     <input type="checkbox" name="phrase" value="1" id="phraseToggle" {% if params and
                                         params.phrase_mode %}checked{% endif %} />
                                     <span class="toggle-slider"></span>
-                                    <span class="toggle-label">Exact phrase search</span>
+                                    <span class="toggle-label">Exact phrase</span>
                                 </label>
-                                <p class="adv-guide">Đặt toàn bộ câu vào dấu "ngoặc kép".</p>
+                                <p class="adv-guide">Toàn bộ câu vào dấu "ngoặc kép".</p>
+                            </div>
+
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Exact Terms
+                                    <span class="tooltip"
+                                        title="Mỗi từ phải khớp chính xác, không cần đứng gần nhau.">?</span>
+                                </label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" name="exact" value="1" id="exactToggle" {% if params and
+                                        params.exact_terms %}checked{% endif %} />
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label">Exact word match</span>
+                                </label>
+                                <p class="adv-guide">Tránh gõ sai hoặc tự động tách từ.</p>
                             </div>
 
                             <div class="adv-group">
@@ -278,9 +293,9 @@
                                     <span class="tooltip"
                                         title="Direct Solr filter query e.g. author:alice OR tags:python">?</span>
                                 </label>
-                                <input type="text" name="fq" class="text-input"
+                                <input type="text" name="fq" class="text-input" id="fqInput"
                                     placeholder="e.g. author:alice AND tags:api"
-                                    value="{{ params.extra_fq if params else '' }}" />
+                                    value="{{ params.extra_fq if params.extra_fq else (search.q if (search and search.q != '*:*') else '') }}" />
                             </div>
 
                             <div class="adv-group">
@@ -313,6 +328,11 @@
                                     Search
                                 </button>
                             </div>
+                            {% if search and search.q and search.q != '*:*' %}
+                            <div class="search-generated-hint">
+                                <span>Solr Raw Query:</span> <code>{{ search.q }}</code>
+                            </div>
+                            {% endif %}
                         </div>
                 </form>
             </div>
