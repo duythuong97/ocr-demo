@@ -1,24 +1,3 @@
-/* ─── Theme Toggle ──────────────────────────────────────────────────────────── */
-const html = document.documentElement;
-const themeToggle = document.getElementById('themeToggle');
-const themeIcon = themeToggle?.querySelector('.theme-icon');
-
-function applyTheme(theme) {
-    html.setAttribute('data-theme', theme);
-    if (themeIcon) themeIcon.textContent = theme === 'dark' ? '🌙' : '☀️';
-}
-
-(function initTheme() {
-    const saved = localStorage.getItem('theme') || 'dark';
-    applyTheme(saved);
-})();
-
-themeToggle?.addEventListener('click', () => {
-    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    applyTheme(next);
-    localStorage.setItem('theme', next);
-});
-
 /* ─── Advanced Panel Toggle ─────────────────────────────────────────────────── */
 const advToggle = document.getElementById('advToggle');
 const advPanel = document.getElementById('advPanel');
@@ -143,7 +122,20 @@ document.getElementById('searchForm')?.addEventListener('submit', () => {
     }
 });
 
-/* Spin animation for the loading icon */
+/* ─── Open local file via server API (bypasses browser file:// block) ────────── */
+function openLocalFile(filePath) {
+    const url = '/ocr-search/api/open-file?path=' + encodeURIComponent(filePath);
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok) {
+                alert('Cannot open file: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(() => alert('Failed to contact server.'));
+}
+
+/* ─── Spin animation for the loading icon */
 const spinStyle = document.createElement('style');
 spinStyle.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
 document.head.appendChild(spinStyle);

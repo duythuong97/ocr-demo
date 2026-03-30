@@ -69,71 +69,6 @@ body {
     transition: background var(--transition), color var(--transition);
 }
 
-/* ── Site Header ───────────────────────────────────────────────────────────── */
-.site-header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(12px);
-}
-
-.header-inner {
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: .75rem 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.logo {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    text-decoration: none;
-}
-
-.logo-icon {
-    font-size: 1.5rem;
-}
-
-.logo-text {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--accent);
-    letter-spacing: -.02em;
-}
-
-.header-actions {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.lang-badge {
-    font-size: .7rem;
-    font-weight: 600;
-    letter-spacing: .08em;
-    color: var(--text-muted);
-    text-transform: uppercase;
-}
-
-.theme-toggle {
-    background: var(--bg-glass);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-pill);
-    padding: .4rem .75rem;
-    cursor: pointer;
-    font-size: 1.1rem;
-    transition: background var(--transition), border-color var(--transition);
-}
-
-.theme-toggle:hover {
-    background: var(--border);
-}
-
 /* ── Hero Section ──────────────────────────────────────────────────────────── */
 .hero {
     background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(79, 142, 247, .18) 0%, transparent 70%);
@@ -851,6 +786,9 @@ body {
 /* Snippet source badges */
 .snip-badge {
     display: inline-block;
+    align-self: flex-start;
+    width: fit-content;
+    max-width: 100%;
     font-size: .65rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -947,12 +885,46 @@ body {
 }
 
 .result-path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem .75rem;
     font-family: var(--font-mono);
     font-size: .75rem;
     color: var(--text-muted);
     margin-bottom: .5rem;
     word-break: break-all;
     /* Paths can be very long without spaces */
+}
+
+.result-path-text {
+    min-width: 0;
+}
+
+.result-path-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+}
+
+.result-path-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: .72rem;
+    padding: .15rem .45rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    /* button reset */
+    cursor: pointer;
+    font-family: inherit;
+    line-height: inherit;
+    display: inline-block;
+}
+
+.result-path-link:hover {
+    text-decoration: none;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .result-snippet {

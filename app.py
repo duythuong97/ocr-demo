@@ -6,7 +6,10 @@ Supports multilingual document search: English, Japanese, Vietnamese
 from __future__ import annotations
 import math
 import logging
-from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
+import platform
+import subprocess
+from pathlib import Path
+from urllib.parse import urlencode, urlparse, parse_qs, urlunparse, quote
 from flask import Flask, render_template, request, jsonify, Response
 from werkzeug.middleware.proxy_fix import ProxyFix
 import pysolr
@@ -91,6 +94,76 @@ def add_facet(url: str, field: str, value: str) -> str:
     return urlunparse(parsed._replace(query=new_query))
 
 
+def facet_param_name(field: str) -> str:
+    """Map Solr facet field names to request query parameter names."""
+    facet_param_map = {
+        cfg.FIELD_LANGUAGE: "lang",
+        cfg.FIELD_REPOSITORY: "repository",
+        cfg.FIELD_FILE_TYPE: "file_type",
+    }
+    return facet_param_map.get(field, field)
+
+
+@app.template_filter("toggle_facet")
+def toggle_facet(url: str, field: str, value: str) -> str:
+    """Toggle a facet value on/off and reset page to 1."""
+    parsed = urlparse(url)
+    qs = parse_qs(parsed.query, keep_blank_values=True)
+    param = facet_param_name(field)
+
+    if qs.get(param, [""])[0] == value:
+        qs.pop(param, None)
+    else:
+        qs[param] = [value]
+
+    qs["page"] = ["1"]
+    new_query = urlencode({k: v[0] for k, v in qs.items()})
+    return urlunparse(parsed._replace(query=new_query))
+
+
+@app.template_global("local_file_href")
+def local_file_href(doc: dict) -> str | None:
+    """Build a local file:// link for a search result when the file exists."""
+    file_path = doc.get(cfg.FIELD_FILE_PATH) or doc.get("file_path")
+    if not file_path:
+        return None
+
+    path = Path(file_path)
+    if not path.is_absolute():
+        local_root = Path(
+            getattr(cfg, "LOCAL_FILE_ROOT", Path(__file__).resolve().parent)
+        )
+        path = local_root / file_path
+
+    if not path.exists():
+        return None
+
+    return path.resolve().as_uri()
+
+
+@app.template_global("repository_href")
+def repository_href(doc: dict) -> str | None:
+    """Build a repository browser URL for a search result.
+
+    Priority:
+    1. doc['url']             — direct full URL stored per-document
+    2. doc['repository_path'] — base URL stored per-document + file_path
+    """
+    direct_url = doc.get(cfg.FIELD_URL) or doc.get("url")
+    if direct_url:
+        return direct_url
+
+    file_path = doc.get(cfg.FIELD_FILE_PATH) or doc.get("file_path")
+
+    # Per-document base URL (preferred: stored in Solr)
+    repo_path = doc.get(cfg.FIELD_REPOSITORY_PATH) or doc.get("repository_path")
+    if repo_path:
+        if not file_path:
+            return repo_path
+        return f"{repo_path.rstrip('/')}/{quote(str(file_path).lstrip('/'), safe='/:@')}"
+
+
+
 # ── Solr client ────────────────────────────────────────────────────────────────
 solr = pysolr.Solr(cfg.SOLR_URL, timeout=cfg.SOLR_TIMEOUT, always_commit=False)
 
@@ -115,6 +188,7 @@ def parse_form(args: dict) -> dict:
 
     # --- Filters ---
     language = args.get("lang", "").strip()
+    repository = args.get("repository", "").strip()
     file_type = args.get("file_type", "").strip()
     date_from = args.get("date_from", "").strip()
     date_to = args.get("date_to", "").strip()
@@ -150,6 +224,7 @@ def parse_form(args: dict) -> dict:
         boost_func=boost_func,
         debug_mode=debug_mode,
         language=language,
+        repository=repository,
         file_type=file_type,
         date_from=date_from,
         date_to=date_to,
@@ -182,7 +257,9 @@ def build_solr_params(p: dict) -> tuple[str, dict]:
         # Exact terms (quote each word independently)
         if q != "*:*" and p["exact_terms"] and not p["phrase_mode"]:
             # Wrap each term in quotes to bypass splitting/fuzzying
-            q = " ".join(f'"{term}"' if not term.startswith("-") else term for term in q.split())
+            q = " ".join(
+                f'"{term}"' if not term.startswith("-") else term for term in q.split()
+            )
 
         # Apply fuzzy to each individual term (only when not phrase/exact/proximity mode)
         elif q != "*:*" and not p["phrase_mode"]:
@@ -204,6 +281,8 @@ def build_solr_params(p: dict) -> tuple[str, dict]:
     fqs: list[str] = []
     if p["language"]:
         fqs.append(f'{cfg.FIELD_LANGUAGE}:"{p["language"]}"')
+    if p["repository"]:
+        fqs.append(f'{cfg.FIELD_REPOSITORY}:"{p["repository"]}"')
     if p["file_type"]:
         fqs.append(f'{cfg.FIELD_FILE_TYPE}:"{p["file_type"]}"')
 
@@ -248,7 +327,7 @@ def build_solr_params(p: dict) -> tuple[str, dict]:
     if p["group_by"]:
         params["group"] = "true"
         params["group.field"] = p["group_by"]
-        params["group.limit"] = 3  # top 3 docs per group
+        params["group.limit"] = 10  # top 10 docs per group
         params["group.ngroups"] = "true"  # count distinct groups
         # When grouping, sort within each group by score
         params["group.sort"] = "score desc"
@@ -346,19 +425,28 @@ def execute_search(p: dict) -> dict:
 
 @app.route("/")
 def index():
+    p = parse_form(request.args)
+    # Only execute search when the user has submitted a query or filter
+    has_input = bool(
+        p["query"] or p["language"] or p["repository"] or p["file_type"]
+        or p["date_from"] or p["date_to"] or p["extra_fq"]
+    )
+    data = execute_search(p) if has_input else None
     return render_template(
         "index.html",
         languages=cfg.LANGUAGES,
         file_types=cfg.FILE_TYPES,
         sort_options=cfg.SORT_OPTIONS,
         default_rows=cfg.DEFAULT_ROWS,
+        search=data,
+        params=p,
     )
 
 
 @app.route("/search")
 def search():
     p = parse_form(request.args)
-    data = execute_search(p) if p["query"] or request.args.get("q") else None
+    data = execute_search(p)
     return render_template(
         "index.html",
         languages=cfg.LANGUAGES,
@@ -374,8 +462,6 @@ def search():
 def api_search():
     """JSON API — called by the frontend via fetch."""
     p = parse_form(request.args)
-    if not p["query"] and not request.args.get("q"):
-        return jsonify({"docs": [], "num_found": 0, "facets": {}, "error": None})
     data = execute_search(p)
     # Make docs JSON-serialisable (values may be lists)
     data["docs"] = [
@@ -386,6 +472,48 @@ def api_search():
         for doc in data["docs"]
     ]
     return jsonify(data)
+
+
+@app.route("/api/open-file")
+def api_open_file():
+    """Open a local file/folder in the OS file manager (Explorer / Finder).
+    Only resolves paths under LOCAL_FILE_ROOT for safety.
+    """
+    file_path = request.args.get("path", "").strip()
+    if not file_path:
+        return jsonify({"error": "No path provided"}), 400
+
+    local_root = Path(getattr(cfg, "LOCAL_FILE_ROOT", Path(__file__).resolve().parent))
+    path = Path(file_path)
+    if not path.is_absolute():
+        path = local_root / file_path
+
+    # Security: ensure resolved path is under LOCAL_FILE_ROOT
+    try:
+        path = path.resolve()
+        path.relative_to(local_root.resolve())
+    except ValueError:
+        return jsonify({"error": "Path outside allowed root"}), 403
+
+    if not path.exists():
+        return jsonify({"error": "File not found"}), 404
+
+    system = platform.system()
+    try:
+        if system == "Windows":
+            # Open Explorer with the file selected
+            subprocess.Popen(["explorer", "/select,", str(path)])
+        elif system == "Darwin":
+            # Open Finder with the file revealed
+            subprocess.Popen(["open", "-R", str(path)])
+        else:
+            # Linux: open parent folder
+            subprocess.Popen(["xdg-open", str(path.parent)])
+    except Exception as exc:
+        app.logger.error("open-file error: %s", exc)
+        return jsonify({"error": str(exc)}), 500
+
+    return jsonify({"ok": True, "path": str(path)})
 
 
 if __name__ == "__main__":

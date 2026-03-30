@@ -16,22 +16,6 @@
 
 <body>
 
-    <!-- ── Header ──────────────────────────────────────────────────────────────── -->
-    <header class="site-header">
-        <div class="header-inner">
-            <a href="{{ url_for('index') }}" class="logo">
-                <span class="logo-icon">⬡</span>
-                <span class="logo-text">SolrSearch</span>
-            </a>
-            <div class="header-actions">
-                <span class="lang-badge">EN · 日 · VI</span>
-                <button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle dark/light mode">
-                    <span class="theme-icon">🌙</span>
-                </button>
-            </div>
-        </div>
-    </header>
-
     <!-- ── Hero / Search Bar ───────────────────────────────────────────────────── -->
     <main>
         <section class="hero {% if search %}compact{% endif %}">
@@ -295,7 +279,7 @@
                                 </label>
                                 <input type="text" name="fq" class="text-input" id="fqInput"
                                     placeholder="e.g. author:alice AND tags:api"
-                                    value="{{ params.extra_fq if params.extra_fq else (search.q if (search and search.q != '*:*') else '') }}" />
+                                    value="{{ params.extra_fq if (params and params.extra_fq) else '' }}" />
                             </div>
 
                             <div class="adv-group">
@@ -356,8 +340,8 @@
                     <ul class="facet-list">
                         {% for val, cnt in pairs %}
                         <li class="facet-item">
-                            <a href="{{ request.url | add_facet(field, val) }}"
-                                class="facet-link {% if (params.language == val) or (params.file_type == val) %}facet-link--active{% endif %}">
+                            <a href="{{ request.url | toggle_facet(field, val) }}"
+                                class="facet-link {% if (field == 'repository' and params and params.repository == val) or (field == 'file_type' and params and params.file_type == val) %}facet-link--active{% endif %}">
                                 <span class="facet-val">{{ val }}</span>
                                 <span class="facet-cnt">{{ cnt }}</span>
                             </a>
@@ -418,12 +402,24 @@
                                 {{ title_hl[0] | safe if title_hl else doc.get('title', doc_id) }}
                             </h3>
                             {% if doc.get('file_path') and doc.file_path != grp.key %}
-                            <p class="result-path">📄 {{ doc.file_path }}</p>
+                            {% set local_href = local_file_href(doc) %}
+                            {% set repo_href = repository_href(doc) %}
+                            <div class="result-path">
+                                <span class="result-path-text">📄 {{ doc.file_path }}</span>
+                                <span class="result-path-actions">
+                                    {% if local_href %}
+                                    <button class="result-path-link" onclick="openLocalFile('{{ doc.file_path | e }}')">Open local</button>
+                                    {% endif %}
+                                    {% if repo_href %}
+                                    <a href="{{ repo_href }}" class="result-path-link" target="_blank" rel="noopener">Open repository</a>
+                                    {% endif %}
+                                </span>
+                            </div>
                             {% endif %}
                             {% set content_hl = hl.get('content', []) or hl.get('source_code_content', []) or
-                            hl.get('ocr_content', []) %}
+                            hl.get('image_orc_text', []) %}
                             {% set snip_source = 'code' if hl.get('source_code_content') else ('ocr' if
-                            hl.get('ocr_content') else 'text') %}
+                            hl.get('image_orc_text') else 'text') %}
                             {% if content_hl %}
                             <div class="result-snippet {% if snip_source == 'code' %}result-snippet--code{% endif %}">
                                 {% if snip_source == 'code' %}<span class="snip-badge snip-badge--code">⌨ code</span>{%
@@ -435,16 +431,16 @@
                             {% elif doc.get('source_code_content') %}
                             <p class="result-snippet-plain result-snippet-plain--code">⌨ {{
                                 doc.source_code_content[:200] }}…</p>
-                            {% elif doc.get('ocr_content') %}
-                            <p class="result-snippet-plain">📷 {{ doc.ocr_content[:200] }}…</p>
+                            {% elif doc.get('image_orc_text') %}
+                            <p class="result-snippet-plain">📷 {{ doc.image_orc_text[:200] }}…</p>
                             {% elif doc.get('content') %}
                             <p class="result-snippet-plain">{{ doc.content[:200] }}…</p>
                             {% endif %}
                         </li>
                         {% endfor %}
                     </ol>
-                    {% if grp.count > 3 %}
-                    <p class="group-more">+ {{ grp.count - 3 }} more matches in this {{ params.group_by | replace('_','
+                    {% if grp.count > 10 %}
+                    <p class="group-more">+ {{ grp.count - 10 }} more matches in this {{ params.group_by | replace('_','
                         ') }}</p>
                     {% endif %}
                 </details>
@@ -488,13 +484,25 @@
                         </h3>
 
                         {% if doc.get('file_path') %}
-                        <p class="result-path">📄 {{ doc.file_path }}</p>
+                        {% set local_href = local_file_href(doc) %}
+                        {% set repo_href = repository_href(doc) %}
+                        <div class="result-path">
+                            <span class="result-path-text">📄 {{ doc.file_path }}</span>
+                            <span class="result-path-actions">
+                                {% if local_href %}
+                                <button class="result-path-link" onclick="openLocalFile('{{ doc.file_path | e }}')">Open local</button>
+                                {% endif %}
+                                {% if repo_href %}
+                                <a href="{{ repo_href }}" class="result-path-link" target="_blank" rel="noopener">Open repository</a>
+                                {% endif %}
+                            </span>
+                        </div>
                         {% endif %}
 
                         {% set content_hl = hl.get('source_code_content', []) or hl.get('content', []) or
-                        hl.get('ocr_content', []) %}
+                        hl.get('image_orc_text', []) %}
                         {% set snip_source = 'code' if hl.get('source_code_content') else ('ocr' if
-                        hl.get('ocr_content') else 'text') %}
+                        hl.get('image_orc_text') else 'text') %}
                         {% if content_hl %}
                         <div class="result-snippet {% if snip_source == 'code' %}result-snippet--code{% endif %}">
                             {% if snip_source == 'code' %}<span class="snip-badge snip-badge--code">⌨ code</span>{%
@@ -508,8 +516,8 @@
                         {% elif doc.get('source_code_content') %}
                         <p class="result-snippet-plain result-snippet-plain--code">⌨ {{ doc.source_code_content[:300]
                             }}…</p>
-                        {% elif doc.get('ocr_content') %}
-                        <p class="result-snippet-plain">📷 {{ doc.ocr_content[:300] }}…</p>
+                        {% elif doc.get('image_orc_text') %}
+                        <p class="result-snippet-plain">📷 {{ doc.image_orc_text[:300] }}…</p>
                         {% elif doc.get('content') %}
                         <p class="result-snippet-plain">{{ doc.content[:300] }}…</p>
                         {% endif %}

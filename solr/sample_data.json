@@ -8,6 +8,7 @@
     "file_path": "backend/auth/authentication.py",
     "author": "alice",
     "repository": "main-app",
+    "url": "https://github.com/example-org/main-app/blob/main/backend/auth/authentication.py",
     "last_modified": "2025-12-10T08:30:00Z",
     "tags": [
       "auth",
@@ -25,6 +26,7 @@
     "file_path": "backend/payments/payment_service.py",
     "author": "bob",
     "repository": "main-app",
+    "repository_path": "https://github.com/example-org/main-app/blob/main",
     "last_modified": "2025-12-15T14:20:00Z",
     "tags": [
       "payment",
@@ -42,6 +44,7 @@
     "file_path": "frontend/lib/database.ts",
     "author": "alice",
     "repository": "frontend-app",
+    "url": "https://github.com/example-org/frontend-app/blob/main/frontend/lib/database.ts",
     "last_modified": "2025-11-20T09:00:00Z",
     "tags": [
       "database",
@@ -59,6 +62,7 @@
     "file_path": "src/main/java/com/company/search/SearchService.java",
     "author": "charlie",
     "repository": "search-service",
+    "repository_path": "https://github.com/example-org/search-service/blob/main",
     "last_modified": "2025-10-05T11:15:00Z",
     "tags": [
       "solr",
@@ -76,6 +80,7 @@
     "file_path": "services/auth/user_auth.py",
     "author": "nguyen_van_a",
     "repository": "vn-backend",
+    "url": "https://gitlab.example.com/platform/vn-backend/-/blob/main/services/auth/user_auth.py",
     "last_modified": "2025-12-01T07:45:00Z",
     "tags": [
       "auth",
@@ -93,6 +98,7 @@
     "file_path": "modules/user_management/user_repository.py",
     "author": "tanaka_kenji",
     "repository": "jp-backend",
+    "repository_path": "https://gitlab.example.com/platform/jp-backend/-/blob/main",
     "last_modified": "2025-11-11T03:20:00Z",
     "tags": [
       "user",
@@ -110,6 +116,7 @@
     "file_path": "gateway/api_gateway.go",
     "author": "bob",
     "repository": "microservices",
+    "repository_path": "https://github.com/example-org/microservices/blob/main",
     "last_modified": "2025-09-30T16:40:00Z",
     "tags": [
       "gateway",
@@ -128,6 +135,7 @@
     "file_path": "frontend/templates/index.html",
     "author": "tran_thi_b",
     "repository": "vn-frontend",
+    "url": "https://gitlab.example.com/platform/vn-frontend/-/blob/main/frontend/templates/index.html",
     "last_modified": "2026-01-10T08:00:00Z",
     "tags": [
       "html",
@@ -145,6 +153,7 @@
     "file_path": "docs/architecture/system_overview.md",
     "author": "alice",
     "repository": "docs",
+    "url": "https://github.com/example-org/docs/blob/main/docs/architecture/system_overview.md",
     "last_modified": "2025-12-20T10:00:00Z",
     "tags": [
       "architecture",
@@ -161,6 +170,7 @@
     "file_path": "docs/api/payment_api.md",
     "author": "bob",
     "repository": "docs",
+    "repository_path": "https://github.com/example-org/docs/blob/main",
     "last_modified": "2025-12-22T14:00:00Z",
     "tags": [
       "api",
@@ -178,6 +188,7 @@
     "file_path": "docs/deployment/deployment_guide_vi.md",
     "author": "nguyen_van_a",
     "repository": "docs",
+    "repository_path": "https://github.com/example-org/docs/blob/main",
     "last_modified": "2026-01-05T09:30:00Z",
     "tags": [
       "deployment",
@@ -195,6 +206,7 @@
     "file_path": "docs/deployment/deployment_guide_ja.docx",
     "author": "tanaka_kenji",
     "repository": "docs",
+    "repository_path": "https://github.com/example-org/docs/blob/main",
     "last_modified": "2025-11-30T02:00:00Z",
     "tags": [
       "deployment",
@@ -211,6 +223,7 @@
     "file_path": "presentations/q4_roadmap_2025.pptx",
     "author": "alice",
     "repository": "presentations",
+    "repository_path": "https://github.com/example-org/presentations/blob/main",
     "last_modified": "2025-10-01T10:00:00Z",
     "tags": [
       "roadmap",
@@ -228,6 +241,7 @@
     "file_path": "presentations/search_upgrade_report_vi.pptx",
     "author": "tran_thi_b",
     "repository": "presentations",
+    "repository_path": "https://github.com/example-org/presentations/blob/main",
     "last_modified": "2025-12-05T08:00:00Z",
     "tags": [
       "search",
@@ -245,6 +259,7 @@
     "file_path": "tracking/bug_tracker_dec2025.xlsx",
     "author": "bob",
     "repository": "project-management",
+    "repository_path": "https://github.com/example-org/project-management/blob/main",
     "last_modified": "2025-12-28T17:00:00Z",
     "tags": [
       "bugs",
@@ -262,6 +277,7 @@
     "file_path": "metrics/api_latency_q4_2025.xlsx",
     "author": "charlie",
     "repository": "project-management",
+    "repository_path": "https://github.com/example-org/project-management/blob/main",
     "last_modified": "2026-01-02T09:00:00Z",
     "tags": [
       "metrics",
@@ -279,6 +295,7 @@
     "file_path": "ocr_output/meeting_20251210_whiteboard.txt",
     "author": "alice",
     "repository": "meeting-notes",
+    "repository_path": "https://github.com/example-org/meeting-notes/blob/main",
     "last_modified": "2025-12-10T12:00:00Z",
     "tags": [
       "ocr",
@@ -287,7 +304,7 @@
       "flow",
       "whiteboard"
     ],
-    "ocr_content": "User -> Frontend: POST /login {username, password}. Frontend -> Auth Service: Validate credentials. Auth Service -> Database: SELECT user WHERE email = ? AND active = true. Database -> Auth Service: User record. Auth Service -> JWT Library: Generate token (24h expiry, role=user). Auth Service -> Frontend: {token, refresh_token, expires_at}. Frontend -> LocalStorage: Store token. Frontend -> API: All requests with Authorization: Bearer <token>. API Gateway -> Auth Service: Verify token on each request. NOTES: - Token refresh endpoint needed at /auth/refresh - Logout must invalidate token (Redis blacklist) - Rate limit: 5 failed logins -> 15min lockout."
+    "image_orc_text": "User -> Frontend: POST /login {username, password}. Frontend -> Auth Service: Validate credentials. Auth Service -> Database: SELECT user WHERE email = ? AND active = true. Database -> Auth Service: User record. Auth Service -> JWT Library: Generate token (24h expiry, role=user). Auth Service -> Frontend: {token, refresh_token, expires_at}. Frontend -> LocalStorage: Store token. Frontend -> API: All requests with Authorization: Bearer <token>. API Gateway -> Auth Service: Verify token on each request. NOTES: - Token refresh endpoint needed at /auth/refresh - Logout must invalidate token (Redis blacklist) - Rate limit: 5 failed logins -> 15min lockout."
   },
   {
     "id": "ocr-002",
@@ -298,6 +315,7 @@
     "file_path": "ocr_output/meeting_20251215_payment_arch.txt",
     "author": "tran_thi_b",
     "repository": "meeting-notes",
+    "repository_path": "https://github.com/example-org/meeting-notes/blob/main",
     "last_modified": "2025-12-15T16:30:00Z",
     "tags": [
       "ocr",
@@ -305,7 +323,7 @@
       "payment",
       "architecture"
     ],
-    "ocr_content": "Cuộc họp ngày 15/12/2025. Thành phần: Alice (Tech Lead), Bob (Backend), Tran Thi B (Frontend). Nội dung: 1. Vấn đề hiện tại - payment_service.py đang gọi Stripe trực tiếp, không có retry logic, timeout 30s quá dài. 2. Giải pháp đề xuất - Tạo PaymentQueue với Redis, xử lý async, retry 3 lần với exponential backoff. Timeout giảm xuống 10s. 3. Webhook - Cần endpoint /webhook/stripe để nhận callback từ Stripe. Lưu event vào database trước khi xử lý (idempotency). 4. Monitoring - Alert khi error rate > 1%, latency > 2s. Dashboard Grafana riêng cho payment flow. Action items: Bob tạo PaymentQueue. Alice review thiết kế webhook. Deadline: 20/12/2025."
+    "image_orc_text": "Cuộc họp ngày 15/12/2025. Thành phần: Alice (Tech Lead), Bob (Backend), Tran Thi B (Frontend). Nội dung: 1. Vấn đề hiện tại - payment_service.py đang gọi Stripe trực tiếp, không có retry logic, timeout 30s quá dài. 2. Giải pháp đề xuất - Tạo PaymentQueue với Redis, xử lý async, retry 3 lần với exponential backoff. Timeout giảm xuống 10s. 3. Webhook - Cần endpoint /webhook/stripe để nhận callback từ Stripe. Lưu event vào database trước khi xử lý (idempotency). 4. Monitoring - Alert khi error rate > 1%, latency > 2s. Dashboard Grafana riêng cho payment flow. Action items: Bob tạo PaymentQueue. Alice review thiết kế webhook. Deadline: 20/12/2025."
   },
   {
     "id": "ocr-003",
@@ -316,6 +334,7 @@
     "file_path": "ocr_output/meeting_20251120_search_jp.txt",
     "author": "tanaka_kenji",
     "repository": "meeting-notes",
+    "repository_path": "https://github.com/example-org/meeting-notes/blob/main",
     "last_modified": "2025-11-20T07:00:00Z",
     "tags": [
       "ocr",
@@ -324,7 +343,7 @@
       "japanese",
       "solr"
     ],
-    "ocr_content": "会議日: 2025年11月20日。参加者: 田中健二（バックエンド）、アリス（アーキテクト）。議題: Solr検索システムの改善。現状の問題点: 1. 日本語形態素解析が不十分 - Kuromoji tokenizrの導入が必要。2. ファジー検索で誤検知が多い。3. ファセット機能が遅い（2秒以上）。改善提案: 1. Kuromojiアナライザーを追加してSchemaに組み込む。2. ファジー距離を最大1に制限する。3. ファセットにdocValuesを有効化する。4. キャッシュサイズを512から1024に増やす。次のステップ: 田中がKuromoji設定をテスト。来週月曜日に結果を報告。予算: 追加インフラ不要。"
+    "image_orc_text": "会議日: 2025年11月20日。参加者: 田中健二（バックエンド）、アリス（アーキテクト）。議題: Solr検索システムの改善。現状の問題点: 1. 日本語形態素解析が不十分 - Kuromoji tokenizrの導入が必要。2. ファジー検索で誤検知が多い。3. ファセット機能が遅い（2秒以上）。改善提案: 1. Kuromojiアナライザーを追加してSchemaに組み込む。2. ファジー距離を最大1に制限する。3. ファセットにdocValuesを有効化する。4. キャッシュサイズを512から1024に増やす。次のステップ: 田中がKuromoji設定をテスト。来週月曜日に結果を報告。予算: 追加インフラ不要。"
   },
   {
     "id": "src-009",
@@ -335,6 +354,7 @@
     "file_path": "backend/auth/token_refresh.py",
     "author": "alice",
     "repository": "main-app",
+    "url": "https://github.com/example-org/main-app/blob/main/backend/auth/token_refresh.py",
     "last_modified": "2025-12-12T10:30:00Z",
     "tags": [
       "auth",
