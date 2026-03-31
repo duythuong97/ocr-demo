@@ -54,6 +54,28 @@ app.logger.setLevel(logging.INFO)
 # ── Jinja2 custom filters ──────────────────────────────────────────────────────
 
 
+@app.template_filter("str_val")
+def str_val_filter(value) -> str:
+    """Safely coerce a Solr field to str — extracts first element if it's a list."""
+    if isinstance(value, list):
+        return value[0] if value else ""
+    return value or ""
+
+
+@app.template_filter("basename")
+def basename_filter(value) -> str:
+    """Return the final component of a file path, handling both / and \\ separators."""
+    if isinstance(value, list):
+        value = value[0] if value else ""
+    if not value:
+        return value
+    from posixpath import basename as posix_basename
+    from ntpath import basename as nt_basename
+
+    # If path contains backslashes, ntpath gives the real filename
+    return nt_basename(value) if "\\" in value else posix_basename(value)
+
+
 @app.template_filter("format_number")
 def fmt_number(value):
     """Format an integer with thousands separators."""
@@ -69,7 +91,7 @@ def remove_param(url: str, param: str) -> str:
     parsed = urlparse(url)
     qs = parse_qs(parsed.query, keep_blank_values=True)
     qs.pop(param, None)
-    new_query = urlencode({k: v[0] for k, v in qs.items()})
+    new_query = urlencode(qs, doseq=True)
     return urlunparse(parsed._replace(query=new_query))
 
 
@@ -79,7 +101,7 @@ def set_param(url: str, param: str, value: str) -> str:
     parsed = urlparse(url)
     qs = parse_qs(parsed.query, keep_blank_values=True)
     qs[param] = [value]
-    new_query = urlencode({k: v[0] for k, v in qs.items()})
+    new_query = urlencode(qs, doseq=True)
     return urlunparse(parsed._replace(query=new_query))
 
 
@@ -90,7 +112,7 @@ def add_facet(url: str, field: str, value: str) -> str:
     qs = parse_qs(parsed.query, keep_blank_values=True)
     qs[field] = [value]
     qs["page"] = ["1"]
-    new_query = urlencode({k: v[0] for k, v in qs.items()})
+    new_query = urlencode(qs, doseq=True)
     return urlunparse(parsed._replace(query=new_query))
 
 
@@ -106,18 +128,24 @@ def facet_param_name(field: str) -> str:
 
 @app.template_filter("toggle_facet")
 def toggle_facet(url: str, field: str, value: str) -> str:
-    """Toggle a facet value on/off and reset page to 1."""
+    """Toggle a facet value on/off (multi-select) and reset page to 1."""
     parsed = urlparse(url)
     qs = parse_qs(parsed.query, keep_blank_values=True)
     param = facet_param_name(field)
 
-    if qs.get(param, [""])[0] == value:
-        qs.pop(param, None)
+    current = qs.get(param, [])
+    if value in current:
+        current = [v for v in current if v != value]
     else:
-        qs[param] = [value]
+        current = current + [value]
+
+    if current:
+        qs[param] = current
+    else:
+        qs.pop(param, None)
 
     qs["page"] = ["1"]
-    new_query = urlencode({k: v[0] for k, v in qs.items()})
+    new_query = urlencode(qs, doseq=True)
     return urlunparse(parsed._replace(query=new_query))
 
 
@@ -160,8 +188,9 @@ def repository_href(doc: dict) -> str | None:
     if repo_path:
         if not file_path:
             return repo_path
-        return f"{repo_path.rstrip('/')}/{quote(str(file_path).lstrip('/'), safe='/:@')}"
-
+        return (
+            f"{repo_path.rstrip('/')}/{quote(str(file_path).lstrip('/'), safe='/:@')}"
+        )
 
 
 # ── Solr client ────────────────────────────────────────────────────────────────
@@ -188,8 +217,8 @@ def parse_form(args: dict) -> dict:
 
     # --- Filters ---
     language = args.get("lang", "").strip()
-    repository = args.get("repository", "").strip()
-    file_type = args.get("file_type", "").strip()
+    repository = [v.strip() for v in args.getlist("repository") if v.strip()]
+    file_type = [v.strip() for v in args.getlist("file_type") if v.strip()]
     date_from = args.get("date_from", "").strip()
     date_to = args.get("date_to", "").strip()
     extra_fq = args.get("fq", "").strip()  # raw fq from user
@@ -277,14 +306,23 @@ def build_solr_params(p: dict) -> tuple[str, dict]:
         if p["phrase_mode"] and q != "*:*":
             q = f'"{q}"'
 
-    # Build filter queries list
     fqs: list[str] = []
     if p["language"]:
         fqs.append(f'{cfg.FIELD_LANGUAGE}:"{p["language"]}"')
     if p["repository"]:
-        fqs.append(f'{cfg.FIELD_REPOSITORY}:"{p["repository"]}"')
+        if len(p["repository"]) == 1:
+            fqs.append(
+                f'{{!tag=repository}}{cfg.FIELD_REPOSITORY}:"{p["repository"][0]}"'
+            )
+        else:
+            inner = " OR ".join(f'"{v}"' for v in p["repository"])
+            fqs.append(f"{{!tag=repository}}{cfg.FIELD_REPOSITORY}:({inner})")
     if p["file_type"]:
-        fqs.append(f'{cfg.FIELD_FILE_TYPE}:"{p["file_type"]}"')
+        if len(p["file_type"]) == 1:
+            fqs.append(f'{{!tag=file_type}}{cfg.FIELD_FILE_TYPE}:"{p["file_type"][0]}"')
+        else:
+            inner = " OR ".join(f'"{v}"' for v in p["file_type"])
+            fqs.append(f"{{!tag=file_type}}{cfg.FIELD_FILE_TYPE}:({inner})")
 
     # Date range
     df = p["date_from"] or "*"
@@ -295,6 +333,9 @@ def build_solr_params(p: dict) -> tuple[str, dict]:
     if p["extra_fq"]:
         fqs.append(p["extra_fq"])
 
+    # Facet fields with exclusion local params so multi-select stays visible
+    facet_fields_ex = [f"{{!ex={f}}}{f}" for f in cfg.FACET_FIELDS]
+
     params: dict = {
         "defType": p["parser"],
         "q.op": p["operator"],
@@ -303,7 +344,7 @@ def build_solr_params(p: dict) -> tuple[str, dict]:
         "start": p["start"],
         # Facets
         "facet": "true",
-        "facet.field": cfg.FACET_FIELDS,
+        "facet.field": facet_fields_ex,
         "facet.mincount": 1,
         "facet.limit": 20,
         # Highlighting
@@ -428,8 +469,13 @@ def index():
     p = parse_form(request.args)
     # Only execute search when the user has submitted a query or filter
     has_input = bool(
-        p["query"] or p["language"] or p["repository"] or p["file_type"]
-        or p["date_from"] or p["date_to"] or p["extra_fq"]
+        p["query"]
+        or p["language"]
+        or p["repository"]
+        or p["file_type"]
+        or p["date_from"]
+        or p["date_to"]
+        or p["extra_fq"]
     )
     data = execute_search(p) if has_input else None
     return render_template(
@@ -446,6 +492,10 @@ def index():
 @app.route("/search")
 def search():
     p = parse_form(request.args)
+    if not p["query"]:
+        from flask import redirect, url_for
+
+        return redirect(url_for("index"))
     data = execute_search(p)
     return render_template(
         "index.html",

@@ -52,6 +52,9 @@ document.getElementById('resetBtn')?.addEventListener('click', () => {
     // Reset parser
     const parser = document.getElementById('parserSelect');
     if (parser) parser.value = 'edismax';
+    // Clear the main search input and go back to home
+    if (queryInput) queryInput.value = '';
+    window.location.href = window.location.pathname.replace(/\/search$/, '/') || '/';
 });
 
 /* ─── Phrase mode hint ──────────────────────────────────────────────────────── */
@@ -104,13 +107,59 @@ function updateProximityHint(val) {
     }
 }
 
+/* ─── Sticky search bar on scroll ──────────────────────────────────────────── */
+(function () {
+    const bar = document.getElementById('stickySearchBar');
+    const stickyInput = document.getElementById('stickyQueryInput');
+    const stickyBtn = document.getElementById('stickySearchBtn');
+    const hero = document.querySelector('.hero');
+    const facetsPanel = document.querySelector('.facets-panel');
+    if (!bar || !hero) return;
+
+    const STICKY_H = 56; // px — matches the bar's rendered height
+
+    function updateBar() {
+        const heroBottom = hero.getBoundingClientRect().bottom;
+        const show = heroBottom <= 0;
+        bar.classList.toggle('is-visible', show);
+        bar.setAttribute('aria-hidden', String(!show));
+        if (facetsPanel) {
+            facetsPanel.style.top = show ? STICKY_H + 8 + 'px' : '0px';
+        }
+    }
+
+    window.addEventListener('scroll', updateBar, { passive: true });
+    updateBar(); // run on load in case page refreshed mid-scroll
+
+    // Submit sticky bar → replace q in current URL and navigate
+    function submitSticky() {
+        const q = stickyInput?.value?.trim();
+        if (!q) { stickyInput?.focus(); return; }
+        const url = new URL(window.location.href);
+        url.searchParams.set('q', q);
+        url.searchParams.delete('page'); // reset to page 1
+        window.location.href = url.toString();
+    }
+
+    stickyBtn?.addEventListener('click', submitSticky);
+    stickyInput?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') submitSticky();
+    });
+})();
+
 /* ─── Fuzzy range live label (also handled by inline oninput) ───────────────── */
 document.getElementById('fuzzyRange')?.addEventListener('input', e => {
     document.getElementById('fuzzyVal').textContent = e.target.value;
 });
 
 /* ─── Search form: show loading state ──────────────────────────────────────── */
-document.getElementById('searchForm')?.addEventListener('submit', () => {
+document.getElementById('searchForm')?.addEventListener('submit', (e) => {
+    const q = queryInput?.value?.trim();
+    if (!q) {
+        e.preventDefault();
+        queryInput?.focus();
+        return;
+    }
     const btn = document.getElementById('searchBtn');
     if (btn) {
         btn.disabled = true;
@@ -121,6 +170,28 @@ document.getElementById('searchForm')?.addEventListener('submit', () => {
       Searching…`;
     }
 });
+
+/* ─── Copy file path to clipboard ─────────────────────────────────────────── */
+function copyPath(filePath) {
+    navigator.clipboard.writeText(filePath).then(() => {
+        // Brief visual feedback on the button that was clicked
+        const btn = document.activeElement;
+        if (btn) {
+            const orig = btn.textContent;
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => { btn.textContent = orig; }, 1500);
+        }
+    }).catch(() => {
+        // Fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = filePath;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+    });
+}
 
 /* ─── Open local file via server API (bypasses browser file:// block) ────────── */
 function openLocalFile(filePath) {

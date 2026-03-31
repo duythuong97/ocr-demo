@@ -16,20 +16,22 @@
 
 <body>
 
-    <!-- ── Hero / Search Bar ───────────────────────────────────────────────────── -->
+    <!-- ── App ──────────────────────────────────────────────────────────────────── -->
     <main>
+        {% if search %}<div class="app-layout">{% endif %}
         <section class="hero {% if search %}compact{% endif %}">
             <div class="hero-inner">
+                {% if search %}
+                <div class="sidebar-logo">🔍 Solr Search</div>
+                {% endif %}
                 {% if not search %}
                 <h1 class="hero-title">Search Documents &amp; Code</h1>
-                <p class="hero-subtitle">Powered by Apache Solr · English · 日本語 · Tiếng Việt</p>
                 {% endif %}
 
                 <form id="searchForm" action="{{ url_for('search') }}" method="GET" autocomplete="off">
                     <div class="search-config-panel">
                         <div class="adv-panel" id="advPanel"
                             style="display:grid; border-bottom: none; border-radius: var(--radius) var(--radius) 0 0;">
-
 
                             <!-- Row 1 -->
                             <div class="adv-group">
@@ -72,22 +74,8 @@
                                 <p class="adv-guide">Cách kết hợp các từ khóa khi tìm kiếm.</p>
                             </div>
 
-                            <div class="adv-group">
-                                <label class="adv-label">
-                                    File Type
-                                    <span class="tooltip"
-                                        title="Lọc kết quả dựa trên định dạng tệp tin (mở rộng).">?</span>
-                                </label>
-                                <div class="select-wrap">
-                                    <select name="file_type">
-                                        {% for ft in file_types %}
-                                        <option value="{{ ft.value }}" {% if params and params.file_type==ft.value
-                                            %}selected{% endif %}>{{ ft.label }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <p class="adv-guide">Giới hạn tìm kiếm trong một loại tệp nhất định.</p>
-                            </div>
+                            {# File Type hidden — controlled via Refine facets #}
+                            <input type="hidden" name="file_type" value="{% if params and params.file_type %}{{ params.file_type | join(',') }}{% endif %}" />
 
                             <div class="adv-group">
                                 <label class="adv-label">
@@ -190,20 +178,8 @@
                                 </p>
                             </div>
 
-                            <div class="adv-group">
-                                <label class="adv-label">
-                                    Highlighting
-                                    <span class="tooltip"
-                                        title="Tìm và tô đậm các từ khóa khớp trong nội dung văn bản.">?</span>
-                                </label>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" name="hl" value="1" id="hlToggle" {% if not params or
-                                        params.hl_enabled %}checked{% endif %} />
-                                    <span class="toggle-slider"></span>
-                                    <span class="toggle-label">Show snippets</span>
-                                </label>
-                                <p class="adv-guide">Trích dẫn đoạn văn chứa từ khóa.</p>
-                            </div>
+                            {# Highlighting always on — hidden #}
+                            <input type="hidden" name="hl" value="1" />
 
                             <div class="adv-group">
                                 <label class="adv-label">
@@ -247,41 +223,6 @@
                                 <p class="adv-guide">Trình bày kết quả theo nhóm logic.</p>
                             </div>
 
-                            <!-- Row 3 — Date Range -->
-                            <div class="adv-group adv-group--wide">
-                                <label class="adv-label">Date Range</label>
-                                <div class="date-range">
-                                    <input type="date" name="date_from" placeholder="From"
-                                        value="{{ params.date_from if params else '' }}" />
-                                    <span class="date-sep">→</span>
-                                    <input type="date" name="date_to" placeholder="To"
-                                        value="{{ params.date_to if params else '' }}" />
-                                </div>
-                            </div>
-
-                            <!-- Row 4 — Power user -->
-                            <div class="adv-group adv-group--wide">
-                                <label class="adv-label">
-                                    Boost Function (bf)
-                                    <span class="tooltip"
-                                        title="Solr bf parameter e.g. recip(rord(last_modified),1,1000,1000)">?</span>
-                                </label>
-                                <input type="text" name="bf" class="text-input"
-                                    placeholder="e.g. recip(rord(last_modified),1,1000,1000)"
-                                    value="{{ params.boost_func if params else '' }}" />
-                            </div>
-
-                            <div class="adv-group adv-group--wide">
-                                <label class="adv-label">
-                                    Raw Filter Query (fq)
-                                    <span class="tooltip"
-                                        title="Direct Solr filter query e.g. author:alice OR tags:python">?</span>
-                                </label>
-                                <input type="text" name="fq" class="text-input" id="fqInput"
-                                    placeholder="e.g. author:alice AND tags:api"
-                                    value="{{ params.extra_fq if (params and params.extra_fq) else '' }}" />
-                            </div>
-
                             <div class="adv-group">
                                 <label class="adv-label">Debug</label>
                                 <label class="toggle-switch">
@@ -319,40 +260,50 @@
                             {% endif %}
                         </div>
                 </form>
+
+                <!-- ── Refine (Facets) inside sidebar ──────────────────────────── -->
+                {% if search %}
+                <aside class="facets-panel">
+                    <h2 class="facets-title">Refine</h2>
+                    {% if search.error %}
+                    <div class="facet-error">⚠ Solr error</div>
+                    {% else %}
+                    {% for field, pairs in search.facets.items() %}
+                    {% if pairs %}
+                    <div class="facet-group">
+                        <h3 class="facet-group-title">{{ field | replace('_', ' ') | title }}</h3>
+                        <ul class="facet-list">
+                            {% for val, cnt in pairs %}
+                            <li class="facet-item">
+                                <a href="{{ request.url | toggle_facet(field, val) }}"
+                                    class="facet-badge {% if (field == 'repository' and params and val in params.repository) or (field == 'file_type' and params and val in params.file_type) %}facet-badge--active{% endif %}">
+                                    <span class="facet-val">{{ val }}</span>
+                                    <span class="facet-cnt">{{ cnt }}</span>
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% endif %}
+
+                    <!-- ── Results summary ─────────────────────────────────── -->
+                    {% if not search.error %}
+                    <p class="sidebar-results-summary">
+                        {{ search.num_found | format_number }} results
+                        &nbsp;&middot;&nbsp; p.{{ search.page }}/{{ search.total_pages }}
+                        {% if search.grouped %}&nbsp;&middot;&nbsp; by {{ params.group_by | replace('_',' ') | title }}{% endif %}
+                    </p>
+                    {% endif %}
+                </aside>
+                {% endif %}
             </div>
         </section><!-- /hero -->
 
-        <!-- ── Results Layout ────────────────────────────────────────────────────── -->
+        <!-- ── Content Pane ──────────────────────────────────────────────────────────── -->
         {% if search %}
-        <div class="results-layout">
-
-            <!-- Sidebar: Facets -->
-            <aside class="facets-panel">
-                <h2 class="facets-title">Refine</h2>
-
-                {% if search.error %}
-                <div class="facet-error">⚠ Solr error</div>
-                {% else %}
-                {% for field, pairs in search.facets.items() %}
-                {% if pairs %}
-                <div class="facet-group">
-                    <h3 class="facet-group-title">{{ field | replace('_', ' ') | title }}</h3>
-                    <ul class="facet-list">
-                        {% for val, cnt in pairs %}
-                        <li class="facet-item">
-                            <a href="{{ request.url | toggle_facet(field, val) }}"
-                                class="facet-link {% if (field == 'repository' and params and params.repository == val) or (field == 'file_type' and params and params.file_type == val) %}facet-link--active{% endif %}">
-                                <span class="facet-val">{{ val }}</span>
-                                <span class="facet-cnt">{{ cnt }}</span>
-                            </a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-                {% endfor %}
-                {% endif %}
-            </aside>
+        <div class="content-pane">
 
             <!-- Main: Results -->
             <section class="results-main">
@@ -363,17 +314,9 @@
                 </div>
 
                 {% else %}
-                <div class="results-meta">
-                    <span class="num-found">{{ search.num_found | format_number }} results</span>
-                    <span class="results-time">Page {{ search.page }} of {{ search.total_pages }}</span>
-                </div>
 
                 {% if search.grouped %}
-                <!-- ── Grouped Results ──────────────────────────────────────── -->
-                <div class="group-label">
-                    Grouped by <strong>{{ params.group_by | replace('_',' ') | title }}</strong> ·
-                    {{ search.num_found | format_number }} groups
-                </div>
+                <!-- ── Grouped Results ────────────────────────────────────────── -->
                 {% if not search.groups %}
                 <div class="no-results">
                     <span class="no-results-icon">🔍</span>
@@ -391,27 +334,21 @@
                         {% set doc_id = doc.get('id', '') %}
                         {% set hl = search.highlighting.get(doc_id, {}) %}
                         <li class="result-card result-card--nested">
-                            <div class="result-header">
-                                {% if doc.get('file_type') %}<span class="badge badge--type">{{ doc.file_type
-                                    }}</span>{% endif %}
-                                {% if doc.get('language') %}<span class="badge badge--lang">{{ doc.language }}</span>{%
-                                endif %}
-                            </div>
                             {% set title_hl = hl.get('title', []) %}
                             <h3 class="result-title">
-                                {{ title_hl[0] | safe if title_hl else doc.get('title', doc_id) }}
+                                {{ title_hl[0] | safe if title_hl else (doc.get('title') | str_val or (doc.get('file_path') | basename) or doc.get('file_path') | str_val or doc_id) }}
                             </h3>
                             {% if doc.get('file_path') and doc.file_path != grp.key %}
                             {% set local_href = local_file_href(doc) %}
                             {% set repo_href = repository_href(doc) %}
                             <div class="result-path">
-                                <span class="result-path-text">📄 {{ doc.file_path }}</span>
                                 <span class="result-path-actions">
+                                    <button class="result-path-link" onclick="copyPath('{{ doc.file_path | str_val | e }}')">📋 Copy path</button>
                                     {% if local_href %}
-                                    <button class="result-path-link" onclick="openLocalFile('{{ doc.file_path | e }}')">Open local</button>
+                                    <button class="result-path-link" onclick="openLocalFile('{{ doc.file_path | str_val | e }}')">📂 Open local</button>
                                     {% endif %}
                                     {% if repo_href %}
-                                    <a href="{{ repo_href }}" class="result-path-link" target="_blank" rel="noopener">Open repository</a>
+                                    <a href="{{ repo_href }}" class="result-path-link" target="_blank" rel="noopener">🔗 Open repository</a>
                                     {% endif %}
                                 </span>
                             </div>
@@ -422,10 +359,6 @@
                             hl.get('image_orc_text') else 'text') %}
                             {% if content_hl %}
                             <div class="result-snippet {% if snip_source == 'code' %}result-snippet--code{% endif %}">
-                                {% if snip_source == 'code' %}<span class="snip-badge snip-badge--code">⌨ code</span>{%
-                                endif %}
-                                {% if snip_source == 'ocr' %}<span class="snip-badge snip-badge--ocr">📷 ocr</span>{%
-                                endif %}
                                 {% for snip in content_hl[:2] %}<p>…{{ snip | safe }}…</p>{% endfor %}
                             </div>
                             {% elif doc.get('source_code_content') %}
@@ -461,15 +394,6 @@
                     {% set doc_id = doc.get('id', '') %}
                     {% set hl = search.highlighting.get(doc_id, {}) %}
                     <li class="result-card">
-                        <div class="result-header">
-                            {% if doc.get('file_type') %}
-                            <span class="badge badge--type">{{ doc.file_type }}</span>
-                            {% endif %}
-                            {% if doc.get('language') %}
-                            <span class="badge badge--lang">{{ doc.language }}</span>
-                            {% endif %}
-                        </div>
-
                         {% set title_hl = hl.get('title', []) %}
                         <h3 class="result-title">
                             {% if doc.get('url') %}
@@ -478,7 +402,7 @@
                                 {% if title_hl %}
                                 {{ title_hl[0] | safe }}
                                 {% else %}
-                                {{ doc.get('title', doc_id) }}
+                                {{ doc.get('title') | str_val or (doc.get('file_path') | basename) or doc.get('file_path') | str_val or doc_id }}
                                 {% endif %}
                                 {% if doc.get('url') %}</a>{% endif %}
                         </h3>
@@ -487,13 +411,13 @@
                         {% set local_href = local_file_href(doc) %}
                         {% set repo_href = repository_href(doc) %}
                         <div class="result-path">
-                            <span class="result-path-text">📄 {{ doc.file_path }}</span>
                             <span class="result-path-actions">
+                                <button class="result-path-link" onclick="copyPath('{{ doc.file_path | str_val | e }}')">📋 Copy path</button>
                                 {% if local_href %}
-                                <button class="result-path-link" onclick="openLocalFile('{{ doc.file_path | e }}')">Open local</button>
+                                <button class="result-path-link" onclick="openLocalFile('{{ doc.file_path | str_val | e }}')">📂 Open local</button>
                                 {% endif %}
                                 {% if repo_href %}
-                                <a href="{{ repo_href }}" class="result-path-link" target="_blank" rel="noopener">Open repository</a>
+                                <a href="{{ repo_href }}" class="result-path-link" target="_blank" rel="noopener">🔗 Open repository</a>
                                 {% endif %}
                             </span>
                         </div>
@@ -505,10 +429,6 @@
                         hl.get('image_orc_text') else 'text') %}
                         {% if content_hl %}
                         <div class="result-snippet {% if snip_source == 'code' %}result-snippet--code{% endif %}">
-                            {% if snip_source == 'code' %}<span class="snip-badge snip-badge--code">⌨ code</span>{%
-                            endif %}
-                            {% if snip_source == 'ocr' %}<span class="snip-badge snip-badge--ocr">📷 ocr</span>{% endif
-                            %}
                             {% for snip in content_hl %}
                             <p>…{{ snip | safe }}…</p>
                             {% endfor %}
@@ -565,7 +485,8 @@
 
                 {% endif %}
             </section>
-        </div><!-- /results-layout -->
+        </div><!-- /content-pane -->
+        </div><!-- /app-layout -->
         {% endif %}
 
     </main>
