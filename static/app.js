@@ -52,6 +52,8 @@ document.getElementById('resetBtn')?.addEventListener('click', () => {
     // Reset parser
     const parser = document.getElementById('parserSelect');
     if (parser) parser.value = 'edismax';
+    const mode = document.getElementById('modeSelect');
+    if (mode) mode.value = 'fulltext';
     // Clear the main search input and go back to home
     if (queryInput) queryInput.value = '';
     window.location.href = window.location.pathname.replace(/\/search$/, '/') || '/';

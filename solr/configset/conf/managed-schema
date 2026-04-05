@@ -12,7 +12,7 @@
   <field name="title"              type="text_general" indexed="true" stored="true"/>
   <field name="content"            type="text_general" indexed="true" stored="true"/>
   <!-- Specialised content fields -->
-  <field name="image_orc_text"         type="text_ocr"     indexed="true" stored="true"/>
+  <field name="image_ocr_text"         type="text_ocr"     indexed="true" stored="true"/>
   <field name="source_code_content" type="text_code"    indexed="true" stored="true"/>
 
   <!-- ── Metadata fields ───────────────────────────────────────────────── -->

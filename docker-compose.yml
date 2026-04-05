@@ -10,7 +10,11 @@ services:
     environment:
       - SOLR_JAVA_MEM=-Xms512m -Xmx1g
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8983/solr/documents/admin/ping || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://localhost:8983/solr/documents/admin/ping || exit 1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 15
@@ -26,4 +30,3 @@ services:
       solr:
         condition: service_healthy
     restart: "no"
-

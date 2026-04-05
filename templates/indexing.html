@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Indexing Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <main class="indexing-main"
+        data-start-url="{{ url_for('api_indexing_start') }}"
+        data-stop-url="{{ url_for('api_indexing_stop') }}"
+        data-status-url="{{ url_for('api_indexing_status') }}"
+        data-sources-url="{{ url_for('api_indexing_sources') }}"
+        data-add-source-url="{{ url_for('api_indexing_sources_add') }}"
+        data-run-all-url="{{ url_for('api_indexing_run_all') }}"
+        data-clear-solr-url="{{ url_for('api_clear_solr') }}"
+        data-clear-qdrant-url="{{ url_for('api_clear_qdrant') }}"
+        data-clear-sqlite-url="{{ url_for('api_clear_sqlite') }}"
+        data-clear-all-url="{{ url_for('api_clear_all') }}"
+        data-socket-io-path="{{ socket_io_path }}">
+        <section class="indexing-hero">
+            <div class="indexing-title-row">
+                <h1>Indexing Manager</h1>
+                <a class="page-link" href="{{ url_for('index') }}">Back to Search</a>
+            </div>
+            <p class="indexing-subtitle">
+                Persisted state with SQLite, auto re-index on file updates, and resume after restart.
+            </p>
+
+            <div class="indexing-source-pick">
+                <label>
+                    Saved Sources
+                    <select id="sourceSelect">
+                        <option value="">-- Select a source --</option>
+                    </select>
+                </label>
+                <button id="reloadSourcesBtn" type="button" class="btn-reset">Reload Sources</button>
+            </div>
+
+            <p class="indexing-subtitle" style="margin-bottom:0.6rem;">
+                Add Repository: fill fields below, then click <strong>Add Repository</strong>.
+            </p>
+
+            <form id="indexingForm" class="indexing-form">
+                <label>
+                    Root Path
+                    <input type="text" name="root_path" placeholder="/path/to/sources" required />
+                </label>
+                <label>
+                    Repository Name
+                    <input type="text" name="name" placeholder="my-repo  (folder inside Root Path)" required />
+                </label>
+                <label>
+                    Repository URL Base
+                    <input type="text" name="repository_url_base" placeholder="https://github.com/org/repo/blob/main (optional)" />
+                </label>
+                <div class="indexing-actions">
+                    <button type="submit" class="search-btn">Start / Resume</button>
+                    <button id="saveSourceBtn" type="button" class="btn-reset">Add Repository</button>
+                    <button id="runAllBtn" type="button" class="btn-reset btn-run-all">⚡ Run All</button>
+                    <button id="stopBtn" type="button" class="btn-reset btn-stop">Stop Current Job</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="indexing-grid">
+            <article class="indexing-card">
+                <h2>Worker Status</h2>
+                <div id="workerState" class="mono muted">Loading...</div>
+                <div id="activeJob" class="mono"></div>
+            </article>
+
+            <article class="indexing-card">
+                <h2>Recent Jobs</h2>
+                <div id="jobsList" class="indexing-list"></div>
+            </article>
+
+            <article id="runAllCard" class="indexing-card indexing-card-wide" style="display:none">
+                <h2>⚡ Run All</h2>
+                <div id="runAllProgress" class="run-all-progress"></div>
+                <div id="runAllLog" class="run-all-log"></div>
+            </article>
+
+            <article class="indexing-card indexing-card-wide">
+                <h2>Recently Indexed Files</h2>
+                <div id="filesList" class="indexing-list"></div>
+            </article>
+
+            <article class="indexing-card indexing-card-wide">
+                <h2>Clear Data</h2>
+                <p class="muted" style="margin-bottom:1rem;">Permanently delete indexed data from each store. Cannot be undone.</p>
+                <div class="indexing-clear-actions">
+                    <button id="clearSolrBtn" type="button" class="btn-reset btn-danger">Clear Solr</button>
+                    <button id="clearQdrantBtn" type="button" class="btn-reset btn-danger">Clear Qdrant</button>
+                    <button id="clearSqliteBtn" type="button" class="btn-reset btn-danger">Clear SQLite</button>
+                    <button id="clearAllBtn" type="button" class="btn-reset btn-danger btn-danger-strong">⚠ Clear All</button>
+                </div>
+                <div id="clearStatus" class="mono muted" style="margin-top:0.75rem;"></div>
+            </article>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='indexing.js') }}"></script>
+</body>
+
+</html>

@@ -176,3 +176,13 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 .vscode
+
+# Indexing runtime state
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/index_sources.user.json
+
+# Qdrant runtime state
+data/qdrant/storage/*
+!data/qdrant/storage/.gitkeep

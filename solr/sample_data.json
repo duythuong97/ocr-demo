@@ -304,7 +304,7 @@
       "flow",
       "whiteboard"
     ],
-    "image_orc_text": "User -> Frontend: POST /login {username, password}. Frontend -> Auth Service: Validate credentials. Auth Service -> Database: SELECT user WHERE email = ? AND active = true. Database -> Auth Service: User record. Auth Service -> JWT Library: Generate token (24h expiry, role=user). Auth Service -> Frontend: {token, refresh_token, expires_at}. Frontend -> LocalStorage: Store token. Frontend -> API: All requests with Authorization: Bearer <token>. API Gateway -> Auth Service: Verify token on each request. NOTES: - Token refresh endpoint needed at /auth/refresh - Logout must invalidate token (Redis blacklist) - Rate limit: 5 failed logins -> 15min lockout."
+    "image_ocr_text": "User -> Frontend: POST /login {username, password}. Frontend -> Auth Service: Validate credentials. Auth Service -> Database: SELECT user WHERE email = ? AND active = true. Database -> Auth Service: User record. Auth Service -> JWT Library: Generate token (24h expiry, role=user). Auth Service -> Frontend: {token, refresh_token, expires_at}. Frontend -> LocalStorage: Store token. Frontend -> API: All requests with Authorization: Bearer <token>. API Gateway -> Auth Service: Verify token on each request. NOTES: - Token refresh endpoint needed at /auth/refresh - Logout must invalidate token (Redis blacklist) - Rate limit: 5 failed logins -> 15min lockout."
   },
   {
     "id": "ocr-002",
@@ -323,7 +323,7 @@
       "payment",
       "architecture"
     ],
-    "image_orc_text": "Cuộc họp ngày 15/12/2025. Thành phần: Alice (Tech Lead), Bob (Backend), Tran Thi B (Frontend). Nội dung: 1. Vấn đề hiện tại - payment_service.py đang gọi Stripe trực tiếp, không có retry logic, timeout 30s quá dài. 2. Giải pháp đề xuất - Tạo PaymentQueue với Redis, xử lý async, retry 3 lần với exponential backoff. Timeout giảm xuống 10s. 3. Webhook - Cần endpoint /webhook/stripe để nhận callback từ Stripe. Lưu event vào database trước khi xử lý (idempotency). 4. Monitoring - Alert khi error rate > 1%, latency > 2s. Dashboard Grafana riêng cho payment flow. Action items: Bob tạo PaymentQueue. Alice review thiết kế webhook. Deadline: 20/12/2025."
+    "image_ocr_text": "Cuộc họp ngày 15/12/2025. Thành phần: Alice (Tech Lead), Bob (Backend), Tran Thi B (Frontend). Nội dung: 1. Vấn đề hiện tại - payment_service.py đang gọi Stripe trực tiếp, không có retry logic, timeout 30s quá dài. 2. Giải pháp đề xuất - Tạo PaymentQueue với Redis, xử lý async, retry 3 lần với exponential backoff. Timeout giảm xuống 10s. 3. Webhook - Cần endpoint /webhook/stripe để nhận callback từ Stripe. Lưu event vào database trước khi xử lý (idempotency). 4. Monitoring - Alert khi error rate > 1%, latency > 2s. Dashboard Grafana riêng cho payment flow. Action items: Bob tạo PaymentQueue. Alice review thiết kế webhook. Deadline: 20/12/2025."
   },
   {
     "id": "ocr-003",
@@ -343,7 +343,7 @@
       "japanese",
       "solr"
     ],
-    "image_orc_text": "会議日: 2025年11月20日。参加者: 田中健二（バックエンド）、アリス（アーキテクト）。議題: Solr検索システムの改善。現状の問題点: 1. 日本語形態素解析が不十分 - Kuromoji tokenizrの導入が必要。2. ファジー検索で誤検知が多い。3. ファセット機能が遅い（2秒以上）。改善提案: 1. Kuromojiアナライザーを追加してSchemaに組み込む。2. ファジー距離を最大1に制限する。3. ファセットにdocValuesを有効化する。4. キャッシュサイズを512から1024に増やす。次のステップ: 田中がKuromoji設定をテスト。来週月曜日に結果を報告。予算: 追加インフラ不要。"
+    "image_ocr_text": "会議日: 2025年11月20日。参加者: 田中健二（バックエンド）、アリス（アーキテクト）。議題: Solr検索システムの改善。現状の問題点: 1. 日本語形態素解析が不十分 - Kuromoji tokenizrの導入が必要。2. ファジー検索で誤検知が多い。3. ファセット機能が遅い（2秒以上）。改善提案: 1. Kuromojiアナライザーを追加してSchemaに組み込む。2. ファジー距離を最大1に制限する。3. ファセットにdocValuesを有効化する。4. キャッシュサイズを512から1024に増やす。次のステップ: 田中がKuromoji設定をテスト。来週月曜日に結果を報告。予算: 追加インフラ不要。"
   },
   {
     "id": "src-009",

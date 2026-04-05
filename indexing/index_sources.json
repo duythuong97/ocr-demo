@@ -1,0 +1,10 @@
+[
+  {
+    "name": "ocr-demo",
+    "root_path": "/Volumes/thuong.pham/sources",
+    "repository": "ocr-demo",
+    "repository_path": "ocr-demo",
+    "repository_url_base": "https://github.com/example/ocr-demo",
+    "extensions": ["py", "js", "html", "css", "md", "txt", "json"]
+  }
+]

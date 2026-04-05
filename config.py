@@ -1,26 +1,66 @@
 """
 Central configuration for the Solr Search Web App.
-Edit the values below to match your Solr setup.
+Environment variables (from .env or shell) override the defaults below.
+Copy .env.example → .env and edit for your environment.
 """
 
+import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
 # ── Solr Connection ────────────────────────────────────────────────────────────
-SOLR_URL = (
-    "http://192.168.1.80:8983/solr/documents"  # Change to your core/collection URL
-)
-SOLR_TIMEOUT = 10  # seconds
+SOLR_URL = os.getenv("SOLR_URL", "http://localhost:8983/solr/documents")
+SOLR_TIMEOUT = int(os.getenv("SOLR_TIMEOUT", "10"))
 
 # ── Default Search Behaviour ───────────────────────────────────────────────────
-DEFAULT_ROWS = 10  # results per page
-DEFAULT_OPERATOR = "OR"  # "OR" | "AND"
-DEFAULT_PARSER = "edismax"  # "lucene" | "edismax"
-APP_PREFIX = "ocr-search"  # e.g. "ocr-search" for the sub-directory name
-SIMULATE_SUBDIRECTORY = True  # Set to False in Production/IIS
+DEFAULT_ROWS = int(os.getenv("DEFAULT_ROWS", "10"))
+DEFAULT_OPERATOR = os.getenv("DEFAULT_OPERATOR", "OR")  # "OR" | "AND"
+DEFAULT_PARSER = os.getenv("DEFAULT_PARSER", "edismax")  # "lucene" | "edismax"
+APP_PREFIX = os.getenv("APP_PREFIX", "ocr-search")
+SIMULATE_SUBDIRECTORY = os.getenv("SIMULATE_SUBDIRECTORY", "true").lower() == "true"
+
+# ── Semantic / Qdrant ─────────────────────────────────────────────────────────
+SEMANTIC_MODEL = os.getenv("SEMANTIC_MODEL", "BAAI/bge-m3")
+QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "semantic_chunks")
+QDRANT_STORAGE_PATH = Path(
+    os.getenv(
+        "QDRANT_STORAGE_PATH",
+        str(Path(__file__).resolve().parent / "data" / "qdrant" / "storage"),
+    )
+)
+SEMANTIC_MIN_SCORE = float(os.getenv("SEMANTIC_MIN_SCORE", "0.45"))
+SEMANTIC_MAX_TEXT_CHARS = int(os.getenv("SEMANTIC_MAX_TEXT_CHARS", "250000"))
+SEMANTIC_MAX_CHUNKS_PER_FILE = int(os.getenv("SEMANTIC_MAX_CHUNKS_PER_FILE", "120"))
+SEMANTIC_SKIP_FILE_TYPES = {
+    v.strip().lstrip(".").lower()
+    for v in os.getenv("SEMANTIC_SKIP_FILE_TYPES", "").split(",")
+    if v.strip()
+}
+
+# ── Proxy Chat ───────────────────────────────────────────────────────────────
+PROXY_CHAT_URL = os.getenv("PROXY_CHAT_URL", "http://localhost:3000/api/lmstudio/chat")
+PROXY_CHAT_MODEL_ID = os.getenv("PROXY_CHAT_MODEL_ID", "qwen/qwen3-14b")
+PROXY_CHAT_MODEL_NAME = os.getenv("PROXY_CHAT_MODEL_NAME", "qwen/qwen3-14b")
+PROXY_CHAT_TIMEOUT = int(os.getenv("PROXY_CHAT_TIMEOUT", "120"))
+RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
+RAG_SEARCH_MODE = os.getenv("RAG_SEARCH_MODE", "hybrid")  # hybrid | semantic | fulltext
+RAG_SYSTEM_PROMPT = os.getenv(
+    "RAG_SYSTEM_PROMPT",
+    "You are a helpful assistant. Answer ONLY based on the context documents provided below. "
+    "Do NOT use your own training knowledge or make up information that is not present in the context. "
+    "Cite the source file name when referencing specific content. "
+    "If the context documents do not contain the answer, respond with: "
+    "'I could not find relevant information in the indexed documents.'",
+)
+
+# ── Flask ─────────────────────────────────────────────────────────────────────
+FLASK_PORT = int(os.getenv("FLASK_PORT", "5100"))
+SHUTDOWN_FORCE_EXIT_SECONDS = int(os.getenv("SHUTDOWN_FORCE_EXIT_SECONDS", "8"))
 
 # ── Result Link Behaviour ─────────────────────────────────────────────────────
-# Relative file paths from Solr will be resolved against this folder when
-# building a local `file://` link.
 LOCAL_FILE_ROOT = Path(__file__).resolve().parent
 
 
@@ -29,9 +69,8 @@ LOCAL_FILE_ROOT = Path(__file__).resolve().parent
 FIELD_ID = "id"
 FIELD_TITLE = "title"
 FIELD_CONTENT = "content"
-FIELD_OCR = "image_orc_text"  # OCR-scanned pages/images
+FIELD_OCR = "image_ocr_text"  # OCR-scanned pages/images
 FIELD_CODE = "source_code_content"  # Source code (camelCase-aware)
-FIELD_LANGUAGE = "language"
 FIELD_FILE_TYPE = "file_type"
 FIELD_FILE_PATH = "file_path"
 FIELD_REPOSITORY = "repository"
@@ -45,7 +84,7 @@ QUERY_FIELDS = {
     "title": 5.0,  # filename / document title
     "source_code_content": 1.5,  # code-aware (camelCase split) → precise
     "content": 1.0,  # general text (docs, markdown)
-    "image_orc_text": 0.6,  # OCR text — noisy, lower trust
+    "image_ocr_text": 0.6,  # OCR text — noisy, lower trust
     "author": 2.0,
     "file_path": 1.0,
 }
@@ -59,14 +98,6 @@ HL_SNIPPETS = 3
 HL_FRAG_SIZE = 150
 HL_PRE_TAG = "<mark>"
 HL_POST_TAG = "</mark>"
-
-# ── Language Options  ─────────────────────────────────────────────────────────
-LANGUAGES = [
-    {"value": "", "label": "All Languages"},
-    {"value": "en", "label": "English"},
-    {"value": "ja", "label": "日本語"},
-    {"value": "vi", "label": "Tiếng Việt"},
-]
 
 # ── File Type Options ─────────────────────────────────────────────────────────
 FILE_TYPES = [

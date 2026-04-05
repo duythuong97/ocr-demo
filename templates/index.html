@@ -21,6 +21,9 @@
         {% if search %}<div class="app-layout">{% endif %}
         <section class="hero {% if search %}compact{% endif %}">
             <div class="hero-inner">
+                <div style="display:flex; justify-content:flex-end; margin-bottom:0.5rem;">
+                    <a class="page-link" href="{{ url_for('indexing_page') }}">Open Indexing Manager</a>
+                </div>
                 {% if search %}
                 <div class="sidebar-logo">🔍 Solr Search</div>
                 {% endif %}
@@ -34,6 +37,22 @@
                             style="display:grid; border-bottom: none; border-radius: var(--radius) var(--radius) 0 0;">
 
                             <!-- Row 1 -->
+                            <div class="adv-group">
+                                <label class="adv-label">
+                                    Search Mode
+                                    <span class="tooltip"
+                                        title="fulltext: Solr BM25. semantic: Qdrant vector search. hybrid: combine both.">?</span>
+                                </label>
+                                <div class="select-wrap">
+                                    <select name="mode" id="modeSelect">
+                                        <option value="fulltext" {% if not params or params.search_mode=='fulltext' %}selected{% endif %}>Full-text</option>
+                                        <option value="semantic" {% if params and params.search_mode=='semantic' %}selected{% endif %}>Semantic</option>
+                                        <option value="hybrid" {% if params and params.search_mode=='hybrid' %}selected{% endif %}>Hybrid</option>
+                                    </select>
+                                </div>
+                                <p class="adv-guide">Chon kieu tim kiem theo lexical/vector.</p>
+                            </div>
+
                             <div class="adv-group">
                                 <label class="adv-label">
                                     Query Parser
@@ -216,8 +235,6 @@
                                             %}selected{% endif %}>By File Type</option>
                                         <option value="author" {% if params and params.group_by=='author' %}selected{%
                                             endif %}>By Author</option>
-                                        <option value="language" {% if params and params.group_by=='language'
-                                            %}selected{% endif %}>By Language</option>
                                     </select>
                                 </div>
                                 <p class="adv-guide">Trình bày kết quả theo nhóm logic.</p>
@@ -354,9 +371,9 @@
                             </div>
                             {% endif %}
                             {% set content_hl = hl.get('content', []) or hl.get('source_code_content', []) or
-                            hl.get('image_orc_text', []) %}
+                            hl.get('image_ocr_text', []) %}
                             {% set snip_source = 'code' if hl.get('source_code_content') else ('ocr' if
-                            hl.get('image_orc_text') else 'text') %}
+                            hl.get('image_ocr_text') else 'text') %}
                             {% if content_hl %}
                             <div class="result-snippet {% if snip_source == 'code' %}result-snippet--code{% endif %}">
                                 {% for snip in content_hl[:2] %}<p>…{{ snip | safe }}…</p>{% endfor %}
@@ -364,8 +381,8 @@
                             {% elif doc.get('source_code_content') %}
                             <p class="result-snippet-plain result-snippet-plain--code">⌨ {{
                                 doc.source_code_content[:200] }}…</p>
-                            {% elif doc.get('image_orc_text') %}
-                            <p class="result-snippet-plain">📷 {{ doc.image_orc_text[:200] }}…</p>
+                            {% elif doc.get('image_ocr_text') %}
+                            <p class="result-snippet-plain">📷 {{ doc.image_ocr_text[:200] }}…</p>
                             {% elif doc.get('content') %}
                             <p class="result-snippet-plain">{{ doc.content[:200] }}…</p>
                             {% endif %}
@@ -424,9 +441,9 @@
                         {% endif %}
 
                         {% set content_hl = hl.get('source_code_content', []) or hl.get('content', []) or
-                        hl.get('image_orc_text', []) %}
+                        hl.get('image_ocr_text', []) %}
                         {% set snip_source = 'code' if hl.get('source_code_content') else ('ocr' if
-                        hl.get('image_orc_text') else 'text') %}
+                        hl.get('image_ocr_text') else 'text') %}
                         {% if content_hl %}
                         <div class="result-snippet {% if snip_source == 'code' %}result-snippet--code{% endif %}">
                             {% for snip in content_hl %}
@@ -436,8 +453,8 @@
                         {% elif doc.get('source_code_content') %}
                         <p class="result-snippet-plain result-snippet-plain--code">⌨ {{ doc.source_code_content[:300]
                             }}…</p>
-                        {% elif doc.get('image_orc_text') %}
-                        <p class="result-snippet-plain">📷 {{ doc.image_orc_text[:300] }}…</p>
+                        {% elif doc.get('image_ocr_text') %}
+                        <p class="result-snippet-plain">📷 {{ doc.image_ocr_text[:300] }}…</p>
                         {% elif doc.get('content') %}
                         <p class="result-snippet-plain">{{ doc.content[:300] }}…</p>
                         {% endif %}
