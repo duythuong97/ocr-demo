@@ -1128,6 +1128,9 @@ def _run_all_worker() -> None:
                     f"[{name}] Already queued as job #{existing['id']} ({existing['status']}), skipping"
                 )
             else:
+                src_mode = src.get("index_mode", "both")
+                if src_mode not in ("both", "solr", "semantic"):
+                    src_mode = "both"
                 job_id = indexing_store.create_job(
                     IndexJobConfig(
                         root_path=src["root_path"],
@@ -1135,6 +1138,7 @@ def _run_all_worker() -> None:
                         repository_path=src.get("repository_path", ""),
                         repository_url_base=src.get("repository_url_base", ""),
                         extensions=src.get("extensions", []),
+                        index_mode=src_mode,
                     )
                 )
                 _log(f"[{name}] Queued as job #{job_id}")
@@ -1245,6 +1249,9 @@ def api_indexing_start():
     repo_name = str(body.get("name", "")).strip()
     repository_url_base = str(body.get("repository_url_base", "")).strip()
     ext_raw = str(body.get("extensions", "")).strip()
+    index_mode = str(body.get("index_mode", "both")).strip()
+    if index_mode not in ("both", "solr", "semantic"):
+        index_mode = "both"
 
     if not root_path:
         return jsonify({"ok": False, "error": "root_path is required"}), 400
@@ -1299,6 +1306,7 @@ def api_indexing_start():
             repository_path=repository_path,
             repository_url_base=repository_url_base,
             extensions=extensions,
+            index_mode=index_mode,
         )
     )
     indexing_worker.start()

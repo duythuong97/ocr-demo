@@ -71,6 +71,185 @@ body {
     color var(--transition);
 }
 
+/* ── App Nav (shared across all pages) ─────────────────────────────────────── */
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1.5rem;
+  height: 3.25rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.app-nav-brand {
+  font-weight: 700;
+  font-size: 0.97rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  text-decoration: none;
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+}
+
+.app-nav-brand svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.app-nav-brand span {
+  background: linear-gradient(135deg, #ffffff 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.app-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.app-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.35rem 0.8rem;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.app-nav-link:hover {
+  color: var(--text);
+  background: var(--bg-glass);
+}
+
+.app-nav-link.active {
+  color: var(--accent);
+  background: rgba(79, 142, 247, 0.12);
+  font-weight: 600;
+}
+
+.app-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: auto;
+  flex-wrap: nowrap;
+}
+
+.app-nav-sep {
+  width: 1px;
+  height: 1.25rem;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Unified Button System ──────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-family: var(--font);
+  font-weight: 500;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+  text-decoration: none;
+  line-height: 1;
+}
+
+.btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-focus);
+  background: var(--bg-glass);
+}
+
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-sm {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.7rem;
+}
+
+.btn-pill {
+  border-radius: var(--radius-pill);
+}
+
+.btn-warning {
+  color: #facc15;
+  border-color: rgba(250, 204, 21, 0.5);
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #facc15;
+  border-color: #facc15;
+  color: #000;
+}
+
+.btn-stop-style {
+  color: var(--danger);
+  border-color: rgba(252, 129, 129, 0.4);
+}
+
+.btn-stop-style:hover:not(:disabled) {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn-destructive {
+  color: var(--danger);
+  border-color: rgba(252, 129, 129, 0.4);
+}
+
+.btn-destructive:hover:not(:disabled) {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn-destructive-strong {
+  font-weight: 700;
+  border-width: 2px;
+}
+
 /* ── Hero Section ──────────────────────────────────────────────────────────── */
 .hero {
   background: radial-gradient(
@@ -1436,6 +1615,37 @@ mark {
   border-top: 1px solid var(--border);
   margin-top: 0.25rem;
   flex-wrap: wrap;
+}
+
+.indexing-mode-fieldset {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.indexing-mode-fieldset legend {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 0 0.3rem;
+}
+
+.indexing-mode-label {
+  display: flex;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.indexing-mode-label input[type="radio"] {
+  width: auto;
+  margin: 0;
 }
 
 .indexing-actions .search-btn {

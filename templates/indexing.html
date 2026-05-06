@@ -14,6 +14,10 @@
 </head>
 
 <body>
+
+    {% set active_page = 'indexing' %}
+    {% include '_nav.html' %}
+
     <main class="indexing-main"
         data-start-url="{{ url_for('api_indexing_start') }}"
         data-stop-url="{{ url_for('api_indexing_stop') }}"
@@ -27,10 +31,7 @@
         data-clear-all-url="{{ url_for('api_clear_all') }}"
         data-socket-io-path="{{ socket_io_path }}">
         <section class="indexing-hero">
-            <div class="indexing-title-row">
-                <h1>Indexing Manager</h1>
-                <a class="page-link" href="{{ url_for('index') }}">Back to Search</a>
-            </div>
+            <h1 style="font-size:1.45rem; margin-bottom:0.4rem;">Indexing Manager</h1>
             <p class="indexing-subtitle">
                 Persisted state with SQLite, auto re-index on file updates, and resume after restart.
             </p>
@@ -42,7 +43,7 @@
                         <option value="">-- Select a source --</option>
                     </select>
                 </label>
-                <button id="reloadSourcesBtn" type="button" class="btn-reset">Reload Sources</button>
+                <button id="reloadSourcesBtn" type="button" class="btn btn-sm">Reload Sources</button>
             </div>
 
             <p class="indexing-subtitle" style="margin-bottom:0.6rem;">
@@ -62,11 +63,23 @@
                     Repository URL Base
                     <input type="text" name="repository_url_base" placeholder="https://github.com/org/repo/blob/main (optional)" />
                 </label>
+                <fieldset class="indexing-mode-fieldset">
+                    <legend>Index Mode</legend>
+                    <label class="indexing-mode-label">
+                        <input type="radio" name="index_mode" value="both" checked /> Full-text + Embeddings
+                    </label>
+                    <label class="indexing-mode-label">
+                        <input type="radio" name="index_mode" value="solr" /> Full-text only (Solr)
+                    </label>
+                    <label class="indexing-mode-label">
+                        <input type="radio" name="index_mode" value="semantic" /> Embeddings only (Qdrant)
+                    </label>
+                </fieldset>
                 <div class="indexing-actions">
-                    <button type="submit" class="search-btn">Start / Resume</button>
-                    <button id="saveSourceBtn" type="button" class="btn-reset">Add Repository</button>
-                    <button id="runAllBtn" type="button" class="btn-reset btn-run-all">⚡ Run All</button>
-                    <button id="stopBtn" type="button" class="btn-reset btn-stop">Stop Current Job</button>
+                    <button type="submit" class="btn btn-primary">Start / Resume</button>
+                    <button id="saveSourceBtn" type="button" class="btn">Add Repository</button>
+                    <button id="runAllBtn" type="button" class="btn btn-warning">⚡ Run All</button>
+                    <button id="stopBtn" type="button" class="btn btn-stop-style" style="margin-left:auto;">Stop Current Job</button>
                 </div>
             </form>
         </section>
@@ -98,10 +111,10 @@
                 <h2>Clear Data</h2>
                 <p class="muted" style="margin-bottom:1rem;">Permanently delete indexed data from each store. Cannot be undone.</p>
                 <div class="indexing-clear-actions">
-                    <button id="clearSolrBtn" type="button" class="btn-reset btn-danger">Clear Solr</button>
-                    <button id="clearQdrantBtn" type="button" class="btn-reset btn-danger">Clear Qdrant</button>
-                    <button id="clearSqliteBtn" type="button" class="btn-reset btn-danger">Clear SQLite</button>
-                    <button id="clearAllBtn" type="button" class="btn-reset btn-danger btn-danger-strong">⚠ Clear All</button>
+                    <button id="clearSolrBtn" type="button" class="btn btn-destructive">Clear Solr</button>
+                    <button id="clearQdrantBtn" type="button" class="btn btn-destructive">Clear Qdrant</button>
+                    <button id="clearSqliteBtn" type="button" class="btn btn-destructive">Clear SQLite</button>
+                    <button id="clearAllBtn" type="button" class="btn btn-destructive btn-destructive-strong">⚠ Clear All</button>
                 </div>
                 <div id="clearStatus" class="mono muted" style="margin-top:0.75rem;"></div>
             </article>

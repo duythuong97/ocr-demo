@@ -186,3 +186,4 @@ data/index_sources.user.json
 # Qdrant runtime state
 data/qdrant/storage/*
 !data/qdrant/storage/.gitkeep
+.playwright-mcp

@@ -16,17 +16,14 @@
 
 <body>
 
+    {% set active_page = 'search' %}
+    {% include '_nav.html' %}
+
     <!-- ── App ──────────────────────────────────────────────────────────────────── -->
     <main>
         {% if search %}<div class="app-layout">{% endif %}
         <section class="hero {% if search %}compact{% endif %}">
             <div class="hero-inner">
-                <div style="display:flex; justify-content:flex-end; margin-bottom:0.5rem;">
-                    <a class="page-link" href="{{ url_for('indexing_page') }}">Open Indexing Manager</a>
-                </div>
-                {% if search %}
-                <div class="sidebar-logo">🔍 Solr Search</div>
-                {% endif %}
                 {% if not search %}
                 <h1 class="hero-title">Search Documents &amp; Code</h1>
                 {% endif %}

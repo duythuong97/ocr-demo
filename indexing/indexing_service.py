@@ -31,6 +31,7 @@ class IndexJobConfig:
     repository_path: str
     repository_url_base: str
     extensions: list[str]
+    index_mode: str = "both"  # "both" | "solr" | "semantic"
 
 
 class IndexingStateStore:
@@ -113,6 +114,10 @@ class IndexingStateStore:
                 conn.execute(
                     "ALTER TABLE index_jobs ADD COLUMN repository_url_base TEXT DEFAULT ''"
                 )
+            if "index_mode" not in existing:
+                conn.execute(
+                    "ALTER TABLE index_jobs ADD COLUMN index_mode TEXT DEFAULT 'both'"
+                )
 
     def recover_interrupted_jobs(self) -> None:
         with self._write_lock, self._connect() as conn:
@@ -178,9 +183,9 @@ class IndexingStateStore:
                 """
                 INSERT INTO index_jobs (
                     root_path, repository, repository_path, repository_url_base,
-                    extensions, status, created_at
+                    extensions, index_mode, status, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, 'queued', ?)
+                VALUES (?, ?, ?, ?, ?, ?, 'queued', ?)
                 """,
                 (
                     config.root_path,
@@ -188,6 +193,7 @@ class IndexingStateStore:
                     config.repository_path,
                     config.repository_url_base,
                     json.dumps(config.extensions),
+                    config.index_mode,
                     utc_now(),
                 ),
             )
@@ -444,6 +450,23 @@ class IndexingStateStore:
                 ),
             )
 
+    def get_indexed_files_for_repo(
+        self, repository: str, repository_path: str
+    ) -> list[sqlite3.Row]:
+        """Return all indexed_files rows for a given repository."""
+        with self._connect() as conn:
+            return conn.execute(
+                "SELECT * FROM indexed_files WHERE repository=? AND repository_path=?",
+                (repository, repository_path),
+            ).fetchall()
+
+    def delete_indexed_file(self, file_path: str) -> None:
+        with self._write_lock, self._connect() as conn:
+            conn.execute(
+                "DELETE FROM indexed_files WHERE file_path=?",
+                (file_path,),
+            )
+
     def list_recent_jobs(self, limit: int = 10) -> list[dict[str, Any]]:
         with self._connect() as conn:
             rows = conn.execute(
@@ -597,6 +620,8 @@ class IndexingWorker:
         queued = 0
         skipped = 0
 
+        scanned_paths: set[str] = set()
+
         for path in scan_root.rglob("*"):
             if not path.is_file():
                 continue
@@ -618,6 +643,7 @@ class IndexingWorker:
             # forward-slash regardless of OS — safe to embed in URLs/Qdrant payload.
             rel_path = path.relative_to(scan_root).as_posix()
             total += 1
+            scanned_paths.add(file_path)
 
             known = self.store.get_indexed_file(file_path)
             needs_index = (
@@ -641,15 +667,48 @@ class IndexingWorker:
             else:
                 skipped += 1
 
+        # ── Stale file cleanup ───────────────────────────────────────────────
+        # Find files previously indexed for this repo that no longer exist on disk
+        index_mode = str(job["index_mode"] or "both")
+        previously_indexed = self.store.get_indexed_files_for_repo(
+            repository=str(job["repository"] or ""),
+            repository_path=str(job["repository_path"] or ""),
+        )
+        deleted_count = 0
+        for row in previously_indexed:
+            fp = str(row["file_path"])
+            if fp in scanned_paths:
+                continue
+            logger.info("Job %d: removing stale file from index: %s", job_id, fp)
+            try:
+                if index_mode in ("both", "solr"):
+                    solr_id = str(row["solr_id"])
+                    if solr_id:
+                        self.solr.delete(id=solr_id, commit=True)
+            except Exception as exc:
+                logger.warning("  stale cleanup Solr failed for %s: %s", fp, exc)
+            try:
+                if index_mode in ("both", "semantic") and self.semantic_service:
+                    self.semantic_service.delete_file(fp)
+            except Exception as exc:
+                logger.warning("  stale cleanup Qdrant failed for %s: %s", fp, exc)
+            self.store.delete_indexed_file(fp)
+            deleted_count += 1
+
+        if deleted_count:
+            logger.info("Job %d: removed %d stale files", job_id, deleted_count)
+        # ────────────────────────────────────────────────────────────────────
+
         self.store.set_job_scan_stats(
             job_id, total=total, queued=queued, skipped=skipped
         )
         logger.info(
-            "Job %d scan complete: %d total, %d queued, %d skipped",
+            "Job %d scan complete: %d total, %d queued, %d skipped, %d stale removed",
             job_id,
             total,
             queued,
             skipped,
+            deleted_count,
         )
 
         if queued == 0:
@@ -733,15 +792,20 @@ class IndexingWorker:
             if is_code:
                 doc[cfg.FIELD_CODE] = content
 
-            t_solr0 = time.perf_counter()
-            self.solr.add([doc], commit=True)
-            logger.debug(
-                "  solr doc added: %s (%.2fs)",
-                solr_id,
-                time.perf_counter() - t_solr0,
-            )
+            index_mode = str(job["index_mode"] or "both")
 
-            if self.semantic_service:
+            if index_mode in ("both", "solr"):
+                t_solr0 = time.perf_counter()
+                self.solr.add([doc], commit=True)
+                logger.debug(
+                    "  solr doc added: %s (%.2fs)",
+                    solr_id,
+                    time.perf_counter() - t_solr0,
+                )
+            else:
+                logger.debug("  solr: skipped (index_mode=%s)", index_mode)
+
+            if index_mode in ("both", "semantic") and self.semantic_service:
                 skip_types = getattr(cfg, "SEMANTIC_SKIP_FILE_TYPES", set())
                 if ext in skip_types:
                     logger.info("  semantic: skipped by file type (%s)", ext)

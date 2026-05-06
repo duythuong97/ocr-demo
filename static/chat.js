@@ -40,6 +40,29 @@
   let history = [];   // [{role, content}]
   let busy    = false;
 
+  // ── LocalStorage persistence ──────────────────────────────────────────────
+  const LS_KEY = "rag_chat_history";
+
+  function saveHistory() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(history)); } catch { /* quota */ }
+  }
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; }
+  }
+
+  function restoreChat() {
+    const saved = loadHistory();
+    if (!saved.length) return;
+    history = saved;
+    if (welcomeEl) welcomeEl.style.display = "none";
+    for (const turn of saved) {
+      appendMessage(turn.role, turn.content);
+    }
+  }
+
+  restoreChat();
+
   // ── LM Studio health check ────────────────────────────────────────────────
   // ── Proxy health check ────────────────────────────────────────────────────
   async function checkStatus() {
@@ -86,6 +109,7 @@
   // ── Clear ─────────────────────────────────────────────────────────────────
   function clearChat() {
     history = [];
+    localStorage.removeItem(LS_KEY);
     messagesEl.innerHTML = "";
     welcomeEl.style.display = "flex";
   }
@@ -177,6 +201,7 @@
     // Add assistant reply to history
     if (fullAnswer) {
       history.push({ role: "assistant", content: fullAnswer });
+      saveHistory();
     }
 
     scrollBottom();

@@ -161,6 +161,9 @@ function fillFormFromSource(source) {
   form.elements.root_path.value = source.root_path || '';
   form.elements.name.value = source.name || source.repository || source.repository_path || '';
   form.elements.repository_url_base.value = source.repository_url_base || '';
+  const mode = source.index_mode || 'both';
+  const radio = form.querySelector(`input[name="index_mode"][value="${mode}"]`);
+  if (radio) radio.checked = true;
 }
 
 async function loadSources() {

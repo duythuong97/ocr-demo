@@ -87,6 +87,25 @@ class SemanticSearchService:
         self._vector_dim = None
         self._model = None
 
+    def delete_file(self, file_path: str) -> None:
+        """Remove all Qdrant points associated with a specific file."""
+        existing = {c.name for c in self.client.get_collections().collections}
+        if self.collection_name not in existing:
+            return
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=models.FilterSelector(
+                filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="file_path",
+                            match=models.MatchValue(value=file_path),
+                        )
+                    ]
+                )
+            ),
+        )
+
     # ── Write ────────────────────────────────────────────────────────────────
 
     def upsert_file(
