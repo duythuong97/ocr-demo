@@ -1,0 +1,276 @@
+# graph/sources.yaml — Config-driven graph export (theo README.md 4-layer model)
+#
+# Structure:
+#   1. Tầng Landscape: System-level infrastructure (ApiService, Database, JobPlatform, FrontendApp, Storage, ExternalService)
+#   2. Tầng Project/Module: Code artifacts (Project, Module)
+#   3. Tầng Logic: Implementation (ApiController, ServiceClass, RepositoryClass, Procedure, SQLFunction, etc.)
+#   4. Tầng Data: Data artifacts (Table, Directory, File, Document)
+#
+# Landscapes are created first and referenced by repositories.
+# Repositories contain projects which create nodes in Logic/Data layers.
+#
+# Required fields per project type:
+#   api     : service_id (link to ApiService), base_path, bounded_context
+#   plsql   : schema, db_name (link to Database)
+#   angular : app_id (link to FrontendApp)
+#   library : (không bắt buộc)
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: 1
+
+# ── Defaults áp dụng cho mọi project nếu không override ──────────────────────
+defaults:
+  system: hr
+  owner_team: hr-team
+  confidence:
+    code_ast: 0.95
+    api_signature: 0.90
+    ddl_parse: 0.90
+    regex_pattern: 0.60
+    manual: 0.80
+  shard_size: 10000 # số MERGE tối đa mỗi file .cypher
+
+landscapes:
+  # ── ApiServices (tầng Landscape) ────────────────────────────────────────────
+  # Edge ra: CONTAINS (→ Project), DEPENDS_ON, CALLS_EXTERNAL, USES_DB
+  aservice:
+    label: ApiService
+    name: aservice
+    properties:
+      service_id: aservice
+      bounded_context: employee
+      expose_channel: internal
+      description: Employee management API
+    uses_db: # (ApiService) -[:USES_DB]-> (Database)
+      - OracleHRDB
+      - OracleAttendanceDB
+
+  bservice:
+    label: ApiService
+    name: bservice
+    properties:
+      service_id: bservice
+      bounded_context: payroll
+      expose_channel: internal
+      description: Payroll processing API
+    uses_db: # (ApiService) -[:USES_DB]-> (Database)
+      - OraclePayrollDB
+
+  # ── Databases (tầng Landscape) ─────────────────────────────────────────────
+  # Edge ra: CONTAINS (→ Table)
+  OracleHRDB:
+    label: Database
+    name: OracleHRDB
+    properties:
+      db_name: OracleHRDB
+      db_engine: oracle
+      description: HR & Employee core database
+
+  OraclePayrollDB:
+    label: Database
+    name: OraclePayrollDB
+    properties:
+      db_name: OraclePayrollDB
+      db_engine: oracle
+      description: Payroll processing database
+
+  OracleAttendanceDB:
+    label: Database
+    name: OracleAttendanceDB
+    properties:
+      db_name: OracleAttendanceDB
+      db_engine: oracle
+      description: Attendance & leave tracking
+
+  # ── FrontendApps (tầng Landscape) ──────────────────────────────────────────
+  # Edge ra: CONTAINS (→ Module/Component)
+  EmployeePortal:
+    label: FrontendApp
+    name: EmployeePortal
+    properties:
+      app_id: employee_portal
+      framework: angular
+      description: Employee self-service portal
+    calls_api: # (FrontendApp) -[:CALLS_API]-> (ApiService)
+      - aservice
+
+  AdminPortal:
+    label: FrontendApp
+    name: AdminPortal
+    properties:
+      app_id: admin_portal
+      framework: angular
+      description: Admin & HR management portal
+    calls_api: # (FrontendApp) -[:CALLS_API]-> (ApiService)
+      - aservice
+      - bservice
+
+  # ── JobPlatform (tầng Landscape) ───────────────────────────────────────────
+  # Edge ra: CONTAINS (→ Job)
+  JP1JobScheduler:
+    label: JobPlatform
+    name: JP1JobScheduler
+    properties:
+      job_platform_id: JP1
+      location: on-premise
+      description: JP1 Enterprise job scheduler
+
+  # ── Storage (tầng Landscape) ───────────────────────────────────────────────
+  # Edge ra: CONTAINS (→ Directory/File)
+  S3DataLake:
+    label: Storage
+    name: S3DataLake
+    properties:
+      storage_id: s3-data-lake
+      storage_type: s3
+      description: AWS S3 bucket for data exports
+
+  NASFileServer:
+    label: Storage
+    name: NASFileServer
+    properties:
+      storage_id: nas-file-server
+      storage_type: nfs
+      description: Network-attached storage for reports
+
+  # ── ExternalServices (tầng Landscape) ────────────────────────────────────
+  # Edge vào: CALLS_EXTERNAL, DEPENDS_ON — thường chỉ là target
+  OktaSSO:
+    label: ExternalService
+    name: OktaSSO
+    properties:
+      service_id: okta_sso
+      service_type: sso
+      endpoint: https://idp.okta.com
+      description: Okta identity provider
+
+files:
+  table_inventory:
+    path: graph/files
+    include_files:
+      - table_list.csv
+    metadata:
+      source_type: manual
+      confidence: 0.8
+      bounded_context: data-catalog
+      description: |
+        Load table inventory from CSV.
+        Each row: scheme, name, db_name, description
+        Creates (Table) nodes and (Database)-[:CONTAINS]->(Table) edges.
+
+  repository_mapping:
+    path: graph/files
+    include_files:
+      - repository_list.csv
+    metadata:
+      source_type: manual
+      confidence: 0.8
+      schema_db_map:
+        HR: OracleHRDB
+        PAYROLL: OraclePayrollDB
+        ATTENDANCE: OracleAttendanceDB
+      description: |
+        Load C# Repository → Table mappings from CSV.
+        Each row: class_name, service_id, bounded_context, schema, table, operation, description
+        Creates (RepositoryClass) nodes and operation edges (READS_FROM, INSERTS_INTO, etc.)
+
+  jp1_jobs:
+    path: graph/files/jobs # scan *.yaml — mỗi file = 1 Job node
+    type: jobs
+    metadata:
+      job_platform_id: JP1 # link to Landscape: (JobPlatform:JP1JobScheduler)
+      plsql_repository: plsql_hr_repo # default repo cho PL/SQL function lookups
+      bounded_context: payroll
+
+repositories:
+  csharp_hr_repo:
+    path: ${REPOS_ROOT:-dummy}/csharp-hr
+    vcs_url: https://git.example.com/hr/csharp-hr
+    source: git
+    defaults:
+      stack: csharp
+      system: hr
+      owner_team: hr-backend-team
+    projects:
+      aservice_api:
+        type: api # Extracts: ApiController, ServiceClass, RepositoryClass
+        path: src/AService
+        metadata:
+          service_id: aservice # Link to Landscape: (ApiService:aservice)
+          bounded_context: employee
+          base_path: /api/employee
+          expose_channel: internal
+          namespace_prefix: HrSystem.AService
+
+      bservice_api:
+        type: api
+        path: src/BService
+        metadata:
+          service_id: bservice # Link to Landscape: (ApiService:bservice)
+          bounded_context: payroll
+          base_path: /api/payroll
+          expose_channel: internal
+          namespace_prefix: HrSystem.BService
+
+      shared_lib:
+        type: library # Shared utilities (no service_id)
+        path: src/Shared
+        metadata:
+          bounded_context: shared
+
+  plsql_hr_repo:
+    path: ${REPOS_ROOT:-dummy}/oracle
+    vcs_url: https://git.example.com/hr/plsql-hr
+    source: git
+    defaults:
+      stack: oracle
+      system: hr
+      owner_team: hr-dba-team
+    projects:
+      hr_schema_objects:
+        type: plsql # scan path/plsql/** — oracle_plsql.py picks .pks/.pkb/.fnc/.prc/.trg
+        path: plsql
+        metadata:
+          schema: HR
+          db_name: OracleHRDB # Link to Landscape: (Database:OracleHRDB)
+          db_engine: oracle
+          bounded_context: employee
+
+      hr_ddl:
+        type: ddl # scan path/ddl/** — oracle_ddl.py picks .sql/.ddl automatically
+        path: ddl # schema prefix extracted directly from DDL files (HR.EMPLOYEES → schema=HR)
+        metadata:
+          db_name: OracleHRDB # fallback db_name when DDL has no schema prefix
+          db_engine: oracle
+          bounded_context: employee
+          schema_db_map: # map schema prefix → db_name (overrides db_name per schema)
+            HR: OracleHRDB
+            PAYROLL: OraclePayrollDB
+
+  angular_portal_repo:
+    path: ${REPOS_ROOT:-dummy}/angular-portal
+    vcs_url: https://git.example.com/hr/angular-portal
+    source: git
+    defaults:
+      stack: angular
+      system: hr
+      owner_team: hr-frontend-team
+    projects:
+      employee_portal:
+        type: angular # Extracts: FrontendComponent, Module
+        path: projects/employee-portal
+        metadata:
+          app_id: employee_portal # Link to Landscape: (FrontendApp:EmployeePortal)
+          route_prefix: /portal/employee
+          consumes_service_ids: # Link to Landscape: (ApiService:aservice)
+            - aservice
+
+      admin_portal:
+        type: angular
+        path: projects/admin-portal
+        metadata:
+          app_id: admin_portal # Link to Landscape: (FrontendApp:AdminPortal)
+          route_prefix: /portal/admin
+          consumes_service_ids: # Links to multiple ApiServices
+            - aservice
+            - bservice

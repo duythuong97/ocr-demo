@@ -1,0 +1,30 @@
+class_name,service_id,bounded_context,schema,table,operation,description
+EmployeeRepository,aservice,employee,HR,EMPLOYEES,SELECT,Query employee records by various criteria
+EmployeeRepository,aservice,employee,HR,EMPLOYEES,INSERT,Insert new employee on onboarding
+EmployeeRepository,aservice,employee,HR,EMPLOYEES,UPDATE,Update employee profile and status
+EmployeeRepository,aservice,employee,HR,DEPARTMENTS,SELECT,Lookup department for employee
+EmployeeRepository,aservice,employee,HR,JOB_HISTORY,SELECT,Query employee job history
+EmployeeRepository,aservice,employee,HR,JOB_HISTORY,INSERT,Record job transfer or promotion
+DepartmentRepository,aservice,employee,HR,DEPARTMENTS,SELECT,Query all active departments
+DepartmentRepository,aservice,employee,HR,DEPARTMENTS,INSERT,Create new department
+DepartmentRepository,aservice,employee,HR,DEPARTMENTS,UPDATE,Update department info
+DepartmentRepository,aservice,employee,HR,LOCATIONS,SELECT,Lookup location for department
+PayrollRepository,bservice,payroll,PAYROLL,PAY_PERIODS,SELECT,Query pay periods by month
+PayrollRepository,bservice,payroll,PAYROLL,PAY_PERIODS,INSERT,Open new payroll period
+PayrollRepository,bservice,payroll,PAYROLL,PAY_PERIODS,UPDATE,Close payroll period after processing
+PayrollRepository,bservice,payroll,PAYROLL,PAYSLIPS,SELECT,Query payslips by employee and period
+PayrollRepository,bservice,payroll,PAYROLL,PAYSLIPS,INSERT,Create payslip after payroll calculation
+PayrollRepository,bservice,payroll,PAYROLL,SALARY_ADJUSTMENTS,SELECT,Query salary adjustments for period
+PayrollRepository,bservice,payroll,PAYROLL,DEDUCTIONS,SELECT,Query deduction items for payslip
+PayrollRepository,bservice,payroll,PAYROLL,DEDUCTIONS,INSERT,Insert calculated deduction lines
+BankTransferRepository,bservice,payroll,PAYROLL,BANK_TRANSFERS,SELECT,Query pending bank transfer records
+BankTransferRepository,bservice,payroll,PAYROLL,BANK_TRANSFERS,INSERT,Create bank transfer instruction
+BankTransferRepository,bservice,payroll,PAYROLL,BANK_TRANSFERS,UPDATE,Mark transfer as sent
+BankTransferRepository,bservice,payroll,PAYROLL,PAYSLIPS,SELECT,Query payslips for bank file generation
+AttendanceRepository,aservice,attendance,ATTENDANCE,DAILY_ATTENDANCE,SELECT,Query attendance records by date range
+AttendanceRepository,aservice,attendance,ATTENDANCE,DAILY_ATTENDANCE,INSERT,Record daily check-in / check-out
+AttendanceRepository,aservice,attendance,ATTENDANCE,LEAVE_REQUESTS,SELECT,Query leave requests for approval
+AttendanceRepository,aservice,attendance,ATTENDANCE,LEAVE_REQUESTS,INSERT,Submit new leave request
+AttendanceRepository,aservice,attendance,ATTENDANCE,LEAVE_REQUESTS,UPDATE,Approve or reject leave request
+AttendanceRepository,aservice,attendance,ATTENDANCE,OVERTIME_RECORDS,SELECT,Query overtime for payroll calculation
+AttendanceRepository,aservice,attendance,ATTENDANCE,OVERTIME_RECORDS,INSERT,Record approved overtime hours

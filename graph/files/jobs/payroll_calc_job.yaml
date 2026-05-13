@@ -1,0 +1,35 @@
+name: PAYROLL_CALC_JOB
+job_platform_id: JP1
+schedule: "0 1 1 * *"         # 01:00 ngày đầu tháng
+bounded_context: payroll
+description: Monthly payroll calculation — open period, generate payslips, transfer to bank, close period
+
+steps:
+  - step: 1
+    type: plsql
+    package: PKG_PAYROLL
+    procedure: OPEN_PAY_PERIOD
+    description: Open pay period for current month
+
+  - step: 2
+    type: plsql
+    package: PKG_PAYROLL
+    procedure: GENERATE_PAYSLIPS
+    description: Calculate and generate payslips for all active employees
+
+  - step: 3
+    type: sqlplus
+    script: sql/validate_payslips.sql
+    description: Validate payslip totals via sqlplus sanity-check script
+
+  - step: 4
+    type: csharp_exe
+    executable: HrBatch.PayrollTransfer.exe
+    args: "--mode transfer --env prod"
+    description: Transfer approved payslips to bank payment system
+
+  - step: 5
+    type: plsql
+    package: PKG_PAYROLL
+    procedure: CLOSE_PAY_PERIOD
+    description: Mark pay period as closed after successful bank transfer

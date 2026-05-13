@@ -1,0 +1,358 @@
+openapi: "3.0.3"
+info:
+  title: HR System API
+  version: "1.0.0"
+  description: REST API for the HR & Payroll management system
+
+servers:
+  - url: /api/v1
+    description: Application server
+
+tags:
+  - name: employees
+    description: Employee management
+  - name: departments
+    description: Department management
+  - name: payroll
+    description: Payroll & payslip operations
+  - name: leave
+    description: Leave request management
+
+paths:
+  /employees:
+    get:
+      tags: [employees]
+      summary: Search employees
+      operationId: searchEmployees
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: dept_id
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, INACTIVE, TERMINATED] }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Paginated employee list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Employee' }
+                  total: { type: integer }
+    post:
+      tags: [employees]
+      summary: Create employee
+      operationId: createEmployee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmployeeCreate' }
+      responses:
+        "201":
+          description: Employee created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Employee' }
+        "400":
+          description: Validation error
+
+  /employees/{empId}:
+    get:
+      tags: [employees]
+      summary: Get employee by ID
+      operationId: getEmployee
+      parameters:
+        - name: empId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Employee record
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Employee' }
+        "404":
+          description: Not found
+    delete:
+      tags: [employees]
+      summary: Terminate employee
+      operationId: terminateEmployee
+      parameters:
+        - name: empId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        "204": { description: Terminated }
+        "404": { description: Not found }
+
+  /employees/{empId}/salary:
+    patch:
+      tags: [employees]
+      summary: Update employee salary
+      operationId: updateEmployeeSalary
+      parameters:
+        - name: empId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newSalary]
+              properties:
+                newSalary: { type: number }
+                reason:    { type: string }
+      responses:
+        "200": { description: Salary updated }
+
+  /employees/{empId}/leave:
+    post:
+      tags: [leave]
+      summary: Submit leave request
+      operationId: submitLeaveRequest
+      parameters:
+        - name: empId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeaveRequestCreate' }
+      responses:
+        "201": { description: Leave request submitted }
+
+  /departments:
+    get:
+      tags: [departments]
+      summary: List all departments
+      operationId: listDepartments
+      responses:
+        "200":
+          description: Department list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Department' }
+
+  /departments/{deptId}/headcount:
+    get:
+      tags: [departments]
+      summary: Get department headcount
+      operationId: getDeptHeadcount
+      parameters:
+        - name: deptId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Headcount info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deptId:       { type: integer }
+                  headcount:    { type: integer }
+                  avgSalary:    { type: number }
+                  totalBudget:  { type: number }
+
+  /payroll/periods:
+    get:
+      tags: [payroll]
+      summary: List pay periods
+      operationId: listPayPeriods
+      responses:
+        "200":
+          description: Pay period list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PayPeriod' }
+    post:
+      tags: [payroll]
+      summary: Open a new pay period
+      operationId: openPayPeriod
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayPeriodCreate' }
+      responses:
+        "201":
+          description: Pay period opened
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayPeriod' }
+
+  /payroll/periods/{periodId}/generate:
+    post:
+      tags: [payroll]
+      summary: Generate payslips for a period
+      operationId: generatePayslips
+      parameters:
+        - name: periodId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Payslips generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }
+
+  /payroll/periods/{periodId}/approve-all:
+    post:
+      tags: [payroll]
+      summary: Approve all draft payslips in a period
+      operationId: approveAllPayslips
+      parameters:
+        - name: periodId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200": { description: Approved }
+
+  /payroll/payslips/{payslipId}/approve:
+    patch:
+      tags: [payroll]
+      summary: Approve a single payslip
+      operationId: approvePayslip
+      parameters:
+        - name: payslipId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200": { description: Approved }
+
+  /leave/{reqId}/approve:
+    patch:
+      tags: [leave]
+      summary: Approve a leave request
+      operationId: approveLeave
+      parameters:
+        - name: reqId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200": { description: Approved }
+
+  /leave/{reqId}/reject:
+    patch:
+      tags: [leave]
+      summary: Reject a leave request
+      operationId: rejectLeave
+      parameters:
+        - name: reqId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes: { type: string }
+      responses:
+        "200": { description: Rejected }
+
+components:
+  schemas:
+    Employee:
+      type: object
+      properties:
+        empId:     { type: integer }
+        firstName: { type: string }
+        lastName:  { type: string }
+        email:     { type: string }
+        salary:    { type: number }
+        jobTitle:  { type: string }
+        deptName:  { type: string }
+        status:    { type: string }
+        hireDate:  { type: string, format: date }
+
+    EmployeeCreate:
+      type: object
+      required: [firstName, lastName, email, jobId, salary, deptId]
+      properties:
+        firstName: { type: string }
+        lastName:  { type: string }
+        email:     { type: string, format: email }
+        jobId:     { type: string }
+        salary:    { type: number }
+        deptId:    { type: integer }
+        hireDate:  { type: string, format: date }
+
+    Department:
+      type: object
+      properties:
+        deptId:    { type: integer }
+        deptCode:  { type: string }
+        deptName:  { type: string }
+        managerId: { type: integer }
+
+    PayPeriod:
+      type: object
+      properties:
+        periodId:   { type: integer }
+        periodName: { type: string }
+        startDate:  { type: string, format: date }
+        endDate:    { type: string, format: date }
+        payDate:    { type: string, format: date }
+        status:     { type: string, enum: [OPEN, PROCESSING, CLOSED] }
+
+    PayPeriodCreate:
+      type: object
+      required: [periodName, startDate, endDate, payDate]
+      properties:
+        periodName: { type: string }
+        startDate:  { type: string, format: date }
+        endDate:    { type: string, format: date }
+        payDate:    { type: string, format: date }
+
+    LeaveRequestCreate:
+      type: object
+      required: [leaveType, startDate, endDate]
+      properties:
+        leaveType:  { type: string, enum: [ANNUAL, SICK, MATERNITY, UNPAID] }
+        startDate:  { type: string, format: date }
+        endDate:    { type: string, format: date }
+        notes:      { type: string }

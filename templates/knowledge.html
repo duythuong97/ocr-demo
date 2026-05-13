@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Knowledge — OCR Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  {% include '_nav.html' %}
+
+  <main class="kw-main" id="knowledgeApp"
+    data-url-nodes="{{ url_for('knowledge.list_nodes') }}"
+    data-url-node-create="{{ url_for('knowledge.create_node') }}"
+    data-url-edges="{{ url_for('knowledge.list_edges') }}"
+    data-url-edge-create="{{ url_for('knowledge.create_edge') }}"
+    data-url-texts="{{ url_for('knowledge.list_texts') }}"
+    data-url-text-create="{{ url_for('knowledge.create_text') }}"
+    data-url-apply="{{ url_for('knowledge.apply_all') }}"
+    data-url-templates="{{ url_for('knowledge.list_templates') }}"
+    data-url-quick-add="{{ url_for('knowledge.quick_add') }}"
+    data-url-import-csv="{{ url_for('knowledge.import_csv') }}"
+    data-url-import-template="{{ url_for('knowledge.download_csv_template') }}"
+  >
+    <div class="kw-header">
+      <div>
+        <h1 class="kw-title">Knowledge Base</h1>
+        <p class="kw-subtitle">Add manual relationships and facts that persist across ingest jobs.</p>
+      </div>
+      <div class="kw-header-actions">
+        <button class="btn btn-secondary" id="btnApplyAll">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Apply to Neo4j / Search
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="kw-tabs" role="tablist">
+      <button class="kw-tab active" role="tab" data-tab="quick-add">⚡ Quick Add</button>
+      <button class="kw-tab" role="tab" data-tab="import">📦 Bulk Import</button>
+      <button class="kw-tab" role="tab" data-tab="edges">Relationships</button>
+      <button class="kw-tab" role="tab" data-tab="nodes">Nodes</button>
+      <button class="kw-tab" role="tab" data-tab="texts">Text Knowledge</button>
+    </div>
+
+    <!-- ── Quick Add Panel ──────────────────────────────────────────────── -->
+    <div class="kw-panel" id="panel-quick-add">
+      <p class="kw-panel-hint">Pick a relationship template, then fill in the names. The system creates the nodes and edge automatically.</p>
+
+      <div id="templateGrid" class="kw-template-grid">
+        <div class="kw-empty" style="padding:2rem">Loading templates…</div>
+      </div>
+
+      <!-- Quick-add form (shown after selecting a template) -->
+      <div class="kw-quick-form" id="quickAddForm" style="display:none">
+        <div class="kw-quick-form-header">
+          <span class="kw-quick-tpl-icon" id="qaTplIcon"></span>
+          <strong id="qaTplLabel"></strong>
+          <span class="kw-rel-badge" id="qaTplRel"></span>
+        </div>
+        <div class="kw-quick-form-fields">
+          <div class="kw-quick-field">
+            <label class="kw-label"><span id="qaFromLabel">From</span> <span class="req">*</span></label>
+            <input class="kw-input" type="text" id="qaFromName" autocomplete="off" />
+            <span class="kw-hint" id="qaFromHint"></span>
+          </div>
+          <div class="kw-quick-arrow">→</div>
+          <div class="kw-quick-field">
+            <label class="kw-label"><span id="qaToLabel">To</span> <span class="req">*</span></label>
+            <input class="kw-input" type="text" id="qaToName" autocomplete="off" />
+            <span class="kw-hint" id="qaToHint"></span>
+          </div>
+          <div class="kw-quick-field kw-quick-field-repo">
+            <label class="kw-label">Repository</label>
+            <input class="kw-input" type="text" id="qaRepository" placeholder="manual" autocomplete="off" />
+          </div>
+        </div>
+        <div class="kw-form-actions">
+          <button class="btn btn-primary" id="btnQuickAdd">Add Relationship</button>
+          <button class="btn btn-ghost" id="btnQuickClear">Clear selection</button>
+        </div>
+        <div class="kw-form-error" id="qaError"></div>
+      </div>
+    </div>
+
+    <!-- ── Bulk Import Panel ────────────────────────────────────────────── -->
+    <div class="kw-panel" id="panel-import" style="display:none">
+      <div class="kw-import-layout">
+        <!-- Left: instructions -->
+        <div class="kw-import-instructions">
+          <h3 class="kw-section-title">CSV Bulk Import</h3>
+          <p class="kw-panel-hint">Upload a CSV file to add many relationships at once. Each row defines one edge (the two endpoint nodes are created automatically).</p>
+
+          <div class="kw-import-columns">
+            <div class="kw-import-col-header">Required columns</div>
+            <table class="kw-import-col-table">
+              <tr><th>Column</th><th>Description</th></tr>
+              <tr><td><code>from_label</code></td><td>Function, Class, Table, View, Module, BackgroundJob, ApiCall, EventTopic</td></tr>
+              <tr><td><code>from_name</code></td><td>Simple name (e.g. <code>UserService.save</code>)</td></tr>
+              <tr><td><code>rel_type</code></td><td>WRITES_TO, READS_FROM, CALLS, BELONGS_TO, HAS_MAPPER, CALLS_API, PUBLISHES, SUBSCRIBES, INSTANTIATES…</td></tr>
+              <tr><td><code>to_label</code></td><td>Same set as from_label</td></tr>
+              <tr><td><code>to_name</code></td><td>Simple name of the target node</td></tr>
+              <tr><td><code>repository</code></td><td>Optional — defaults to <code>manual</code></td></tr>
+            </table>
+          </div>
+
+          <a class="btn btn-secondary" id="btnDownloadTemplate" href="#">
+            ↓ Download template CSV
+          </a>
+        </div>
+
+        <!-- Right: dropzone + preview -->
+        <div class="kw-import-right">
+          <label class="kw-dropzone" id="importDropzone">
+            <input type="file" id="importFileInput" accept=".csv" style="display:none" />
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span id="dropzoneLabel">Drop CSV here or click to browse</span>
+          </label>
+
+          <!-- Preview table -->
+          <div id="importPreviewWrap" style="display:none">
+            <div class="kw-import-preview-header">
+              <span id="importPreviewCount"></span>
+              <button class="btn btn-ghost btn-sm" id="btnClearImport">✕ Clear</button>
+            </div>
+            <div class="kw-table-wrap">
+              <table class="kw-table kw-import-preview-table" id="importPreviewTable">
+                <thead id="importPreviewHead"></thead>
+                <tbody id="importPreviewBody"></tbody>
+              </table>
+            </div>
+            <div class="kw-form-actions">
+              <button class="btn btn-primary" id="btnRunImport">Import</button>
+            </div>
+          </div>
+
+          <!-- Results -->
+          <div class="kw-import-results" id="importResults" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Edges Panel ─────────────────────────────────────────────────── -->
+    <div class="kw-panel" id="panel-edges" style="display:none">
+      <div class="kw-toolbar">
+        <input class="kw-search" type="text" id="edgeSearch" placeholder="Filter by name…" />
+        <input class="kw-search" type="text" id="edgeRelFilter" placeholder="Rel type" style="max-width:150px" />
+        <button class="btn btn-primary" id="btnNewEdge">+ New Edge</button>
+      </div>
+
+      <!-- Edge Form (raw qualified_name — power user) -->
+      <div class="kw-form-panel" id="edgeForm" style="display:none">
+        <h3 class="kw-form-title">New Graph Edge (Advanced)</h3>
+        <div class="kw-form-grid">
+          <label class="kw-label">From (qualified_name) <span class="req">*</span></label>
+          <input class="kw-input" type="text" id="edgeFrom" placeholder="Function:repo:MyClass.caller" />
+          <label class="kw-label">Relationship Type <span class="req">*</span></label>
+          <input class="kw-input" type="text" id="edgeRelType" placeholder="CALLS / IMPORTS / BELONGS_TO…" />
+          <label class="kw-label">To (qualified_name) <span class="req">*</span></label>
+          <input class="kw-input" type="text" id="edgeTo" placeholder="Function:repo:MyClass.callee" />
+          <label class="kw-label">Properties (JSON)</label>
+          <textarea class="kw-input kw-textarea" id="edgeProps" placeholder='{}'>{}</textarea>
+        </div>
+        <div class="kw-form-actions">
+          <button class="btn btn-primary" id="btnEdgeSave">Save</button>
+          <button class="btn btn-secondary" id="btnEdgeCancel">Cancel</button>
+        </div>
+        <div class="kw-form-error" id="edgeError"></div>
+      </div>
+
+      <!-- Edge Table -->
+      <div class="kw-table-wrap">
+        <table class="kw-table" id="edgeTable">
+          <thead><tr>
+            <th>From</th><th>Type</th><th>To</th><th>Created</th><th class="kw-actions-col">Actions</th>
+          </tr></thead>
+          <tbody id="edgeTbody"><tr><td colspan="5" class="kw-empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Nodes Panel ─────────────────────────────────────────────────── -->
+    <div class="kw-panel" id="panel-nodes" style="display:none">
+      <div class="kw-toolbar">
+        <input class="kw-search" type="text" id="nodeSearch" placeholder="Filter by name…" />
+        <input class="kw-search" type="text" id="nodeLabelFilter" placeholder="Label (e.g. Function)" style="max-width:160px" />
+        <button class="btn btn-primary" id="btnNewNode">+ New Node</button>
+      </div>
+
+      <!-- Node Form -->
+      <div class="kw-form-panel" id="nodeForm" style="display:none">
+        <h3 class="kw-form-title" id="nodeFormTitle">New Graph Node</h3>
+        <input type="hidden" id="nodeFormId" />
+        <div class="kw-form-grid">
+          <label class="kw-label">Label <span class="req">*</span></label>
+          <input class="kw-input" type="text" id="nodeLabel" placeholder="Function / Class / Module…" />
+          <label class="kw-label">Name <span class="req">*</span></label>
+          <input class="kw-input" type="text" id="nodeName" placeholder="e.g. MyClass.doSomething" />
+          <label class="kw-label">Repository</label>
+          <input class="kw-input" type="text" id="nodeRepository" placeholder="manual" />
+          <label class="kw-label">Properties (JSON)</label>
+          <textarea class="kw-input kw-textarea" id="nodeProps" placeholder='{"description": "…"}'>{}</textarea>
+        </div>
+        <div class="kw-form-actions">
+          <button class="btn btn-primary" id="btnNodeSave">Save</button>
+          <button class="btn btn-secondary" id="btnNodeCancel">Cancel</button>
+        </div>
+        <div class="kw-form-error" id="nodeError"></div>
+      </div>
+
+      <!-- Node Table -->
+      <div class="kw-table-wrap">
+        <table class="kw-table" id="nodeTable">
+          <thead><tr>
+            <th>Label</th><th>Name</th><th>Repository</th><th>Properties</th><th>Updated</th><th class="kw-actions-col">Actions</th>
+          </tr></thead>
+          <tbody id="nodeTbody"><tr><td colspan="6" class="kw-empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Texts Panel ─────────────────────────────────────────────────── -->
+    <div class="kw-panel" id="panel-texts" style="display:none">
+      <div class="kw-toolbar">
+        <input class="kw-search" type="text" id="textSearch" placeholder="Filter by title or content…" />
+        <input class="kw-search" type="text" id="textTagFilter" placeholder="Filter by tag" style="max-width:160px" />
+        <button class="btn btn-primary" id="btnNewText">+ New Text</button>
+      </div>
+
+      <!-- Text Form -->
+      <div class="kw-form-panel" id="textForm" style="display:none">
+        <h3 class="kw-form-title" id="textFormTitle">New Text Knowledge</h3>
+        <input type="hidden" id="textFormId" />
+        <div class="kw-form-grid kw-form-grid-wide">
+          <label class="kw-label">Title <span class="req">*</span></label>
+          <input class="kw-input" type="text" id="textTitle" placeholder="Short descriptive title" />
+          <label class="kw-label">Repository</label>
+          <input class="kw-input" type="text" id="textRepository" placeholder="knowledge" />
+          <label class="kw-label">Tags</label>
+          <input class="kw-input" type="text" id="textTags" placeholder="comma,separated,tags" />
+          <label class="kw-label">Content <span class="req">*</span></label>
+          <textarea class="kw-input kw-textarea kw-textarea-lg" id="textContent" placeholder="Detailed knowledge content…"></textarea>
+        </div>
+        <div class="kw-form-actions">
+          <button class="btn btn-primary" id="btnTextSave">Save &amp; Index</button>
+          <button class="btn btn-secondary" id="btnTextCancel">Cancel</button>
+        </div>
+        <div class="kw-form-error" id="textError"></div>
+      </div>
+
+      <!-- Text Table -->
+      <div class="kw-table-wrap">
+        <table class="kw-table" id="textTable">
+          <thead><tr>
+            <th>Title</th><th>Tags</th><th>Repository</th><th>Indexed</th><th>Updated</th><th class="kw-actions-col">Actions</th>
+          </tr></thead>
+          <tbody id="textTbody"><tr><td colspan="6" class="kw-empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="kw-toast" id="kwToast"></div>
+  </main>
+
+  <script src="{{ url_for('static', filename='knowledge.js') }}"></script>
+</body>
+</html>

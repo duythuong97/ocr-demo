@@ -1,13 +1,30 @@
 # OCR Demo Runbook
 
+## Target Architecture
+
+See `.github/instructions/architecture.instructions.md` for the full module map and placement rules.
+
+**4 Domain Features:** search · ingest · retrieval · knowledge
+**3 External Systems:** Solr (fulltext) · Qdrant (vectors) · Neo4j (graph, optional)
+**State:** SQLite at `data/indexing.db`
+
 ## Core Paths
-- Application: app.py
-- Config: config.py
-- Indexing service: indexing/indexing_service.py
-- Source defaults: indexing/index_sources.json
-- User-added sources: data/index_sources.user.json
-- SQLite indexing state: data/indexing.db
-- Logs: logs/indexing.log and logs/chat.log
+
+| Concern | Current file | Target (pending refactor) |
+|---|---|---|
+| Entry point | `app.py` | unchanged |
+| Config | `config.py` | unchanged |
+| Service singletons | `services.py` | unchanged |
+| Embedder | `embedding.py` | `infra/embedder.py` |
+| Ingest job config (dataclass) | `ingest/models.py` | ✅ |
+| SQLite state store | `ingest/store.py` | ✅ |
+| Indexing worker thread | `ingest/worker.py` | ✅ |
+| Qdrant write adapter | `ingest/ingest_service.py` | `infra/qdrant_store.py` |
+| Knowledge CRUD | `knowledge/service.py` | ✅ |
+| Source config | `ingest/source_manager.py` | unchanged |
+| Run-all | `ingest/run_all.py` | unchanged |
+| Fulltext search | `search/fulltext.py` | unchanged |
+| Qdrant read / RAG | `retrieval/retrieval_service.py`, `retrieval/rag.py` | unchanged |
 
 ## Start-Up Checklist
 1. Activate environment and install dependencies.

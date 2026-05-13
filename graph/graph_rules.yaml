@@ -1,0 +1,106 @@
+# graph_rules.yaml — User-defined extraction rules for the graph pipeline.
+#
+# Rules are applied AFTER built-in extractors (C#, TypeScript, OpenAPI, XML, CronJob).
+# Use this file to add domain-specific patterns without modifying Python code.
+#
+# Rule schema:
+#   name:           Human-readable rule name (required)
+#   file_patterns:  List of glob patterns matching file paths (required)
+#   match:          Python regex applied to file content (required)
+#   creates_node:
+#     label:        Neo4j node label
+#     name_group:   Regex group number used as node name (default: 1)
+#     properties:   Additional static properties
+#   creates_edge:
+#     from_context: "enclosing_function" | "file" — what the edge comes FROM
+#     rel_type:     Relationship type to create
+#     to_label:     Label of the target node
+#     to_name_group: Regex group for target node name (default: 1)
+# ─────────────────────────────────────────────────────────────────────────────
+
+rules:
+
+  # ── TypeScript: HTTP fetch calls to internal API paths ─────────────────────
+  - name: "TS fetch internal API"
+    file_patterns:
+      - "**/*.ts"
+      - "**/*.tsx"
+    match: 'fetch\([''"`](/api/[^''"`]+)[''"`]'
+    creates_node:
+      label: "ApiCall"
+      name_group: 1
+      properties:
+        method: "GET"
+        source: "rule"
+    creates_edge:
+      from_context: "enclosing_function"
+      rel_type: "CALLS_API"
+      to_label: "ApiCall"
+      to_name_group: 1
+
+  # ── TypeScript: axios POST calls ─────────────────────────────────────────────
+  - name: "TS axios POST"
+    file_patterns:
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.js"
+    match: 'axios\.post\([''"`]([^''"`]+)[''"`]'
+    creates_node:
+      label: "ApiCall"
+      name_group: 1
+      properties:
+        method: "POST"
+        source: "rule"
+    creates_edge:
+      from_context: "enclosing_function"
+      rel_type: "CALLS_API"
+      to_label: "ApiCall"
+      to_name_group: 1
+
+  # ── C#: HttpClient.GetAsync / PostAsync external calls ────────────────────
+  - name: "CS HttpClient external call"
+    file_patterns:
+      - "**/*.cs"
+    match: 'HttpClient\.\w+Async\([''"]?(https?://[^''")\s]+)[''"]?'
+    creates_node:
+      label: "ExternalService"
+      name_group: 1
+      properties:
+        source: "rule"
+    creates_edge:
+      from_context: "enclosing_function"
+      rel_type: "CALLS_EXTERNAL"
+      to_label: "ExternalService"
+      to_name_group: 1
+
+  # ── C#: Publish to event bus (MassTransit / RabbitMQ) ────────────────────
+  - name: "CS MassTransit Publish"
+    file_patterns:
+      - "**/*.cs"
+    match: '\.Publish(?:Async)?\s*<\s*(\w+)\s*>'
+    creates_node:
+      label: "EventTopic"
+      name_group: 1
+      properties:
+        source: "rule"
+    creates_edge:
+      from_context: "enclosing_function"
+      rel_type: "PUBLISHES"
+      to_label: "EventTopic"
+      to_name_group: 1
+
+  # ── C#: Consume event (MassTransit IConsumer<T>) ───────────────────────────
+  - name: "CS MassTransit Consumer"
+    file_patterns:
+      - "**/*.cs"
+    match: 'IConsumer\s*<\s*(\w+)\s*>'
+    creates_node:
+      label: "EventTopic"
+      name_group: 1
+      properties:
+        source: "rule"
+    creates_edge:
+      from_context: "file"
+      rel_type: "SUBSCRIBES"
+      to_label: "EventTopic"
+      to_name_group: 1

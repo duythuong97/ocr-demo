@@ -1,0 +1,17 @@
+# Custom init image with sample data baked in
+# Works with remote Docker contexts — no bind mounts needed
+FROM curlimages/curl:8.5.0
+
+# Index data and wait for Solr to be ready
+ENTRYPOINT ["sh", "-c", "\
+  echo '==> Waiting for Solr to be ready...' && \
+  until curl -sf http://solr:8983/solr/documents/admin/ping > /dev/null 2>&1; do \
+    echo 'Waiting...' && sleep 3; \
+  done && \
+  echo '==> Solr is up! Indexing sample data...' && \
+  curl -sf -X POST 'http://solr:8983/solr/documents/update?commit=true' \
+    -H 'Content-Type: application/json' \
+    -d @/data/sample_data.json && \
+  echo '' && \
+  echo '==> Done! 20 documents indexed.' \
+"]

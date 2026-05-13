@@ -1,0 +1,14 @@
+scheme,name,db_name,description
+HR,EMPLOYEES,OracleHRDB,Main employee master table — stores all active and historical employee records
+HR,DEPARTMENTS,OracleHRDB,Department reference table
+HR,JOB_GRADES,OracleHRDB,Job grade and salary range definitions
+HR,JOB_HISTORY,OracleHRDB,Employee job history — tracks transfers and promotions
+HR,LOCATIONS,OracleHRDB,Physical office / work location master
+PAYROLL,PAY_PERIODS,OraclePayrollDB,Payroll processing period header — one row per pay run
+PAYROLL,PAYSLIPS,OraclePayrollDB,Employee monthly payslip records
+PAYROLL,SALARY_ADJUSTMENTS,OraclePayrollDB,Salary adjustment and bonus history
+PAYROLL,DEDUCTIONS,OraclePayrollDB,Payroll deduction line items (tax, insurance, etc.)
+PAYROLL,BANK_TRANSFERS,OraclePayrollDB,Bank transfer instructions generated per pay period
+ATTENDANCE,DAILY_ATTENDANCE,OracleAttendanceDB,Raw daily check-in / check-out records
+ATTENDANCE,LEAVE_REQUESTS,OracleAttendanceDB,Employee leave request and approval records
+ATTENDANCE,OVERTIME_RECORDS,OracleAttendanceDB,Overtime hours logged per employee per month

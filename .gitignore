@@ -187,3 +187,6 @@ data/index_sources.user.json
 data/qdrant/storage/*
 !data/qdrant/storage/.gitkeep
 .playwright-mcp
+
+# Graph export output
+graph/exports/

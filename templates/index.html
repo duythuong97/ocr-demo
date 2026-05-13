@@ -28,28 +28,12 @@
                 <h1 class="hero-title">Search Documents &amp; Code</h1>
                 {% endif %}
 
-                <form id="searchForm" action="{{ url_for('search') }}" method="GET" autocomplete="off">
+                <form id="searchForm" action="{{ url_for('search.search') }}" method="GET" autocomplete="off">
                     <div class="search-config-panel">
                         <div class="adv-panel" id="advPanel"
                             style="display:grid; border-bottom: none; border-radius: var(--radius) var(--radius) 0 0;">
 
                             <!-- Row 1 -->
-                            <div class="adv-group">
-                                <label class="adv-label">
-                                    Search Mode
-                                    <span class="tooltip"
-                                        title="fulltext: Solr BM25. semantic: Qdrant vector search. hybrid: combine both.">?</span>
-                                </label>
-                                <div class="select-wrap">
-                                    <select name="mode" id="modeSelect">
-                                        <option value="fulltext" {% if not params or params.search_mode=='fulltext' %}selected{% endif %}>Full-text</option>
-                                        <option value="semantic" {% if params and params.search_mode=='semantic' %}selected{% endif %}>Semantic</option>
-                                        <option value="hybrid" {% if params and params.search_mode=='hybrid' %}selected{% endif %}>Hybrid</option>
-                                    </select>
-                                </div>
-                                <p class="adv-guide">Chon kieu tim kiem theo lexical/vector.</p>
-                            </div>
-
                             <div class="adv-group">
                                 <label class="adv-label">
                                     Query Parser
@@ -234,7 +218,6 @@
                                             endif %}>By Author</option>
                                     </select>
                                 </div>
-                                <p class="adv-guide">Trình bày kết quả theo nhóm logic.</p>
                             </div>
 
                             <div class="adv-group">

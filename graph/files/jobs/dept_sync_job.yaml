@@ -1,0 +1,29 @@
+name: DEPT_SYNC_JOB
+job_platform_id: JP1
+schedule: "0 6 * * 1"         # 06:00 mỗi thứ Hai
+bounded_context: employee
+description: Weekly sync — update department headcount and manager assignments
+
+steps:
+  - step: 1
+    type: plsql
+    package: PKG_EMPLOYEE
+    procedure: GET_DEPT_HEADCOUNT
+    description: Refresh department headcount cache table
+
+  - step: 2
+    type: plsql
+    package: PKG_EMPLOYEE
+    procedure: GET_EMPLOYEE
+    description: Reload employee master data for active employees
+
+  - step: 3
+    type: csharp_exe
+    executable: HrBatch.DeptSync.exe
+    args: "--target ldap --mode full"
+    description: Push updated org chart to LDAP directory
+
+  - step: 4
+    type: shell
+    command: python notify_slack.py --channel hr-ops
+    description: Send weekly headcount summary to HR Slack channel

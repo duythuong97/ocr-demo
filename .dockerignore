@@ -1,0 +1,50 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Development / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Secrets — never bake into image
+.env
+*.env
+
+# Logs
+logs/
+*.log
+
+# Test / CI
+.tox/
+.nox/
+htmlcov/
+.coverage
+coverage.xml
+*.junit.xml
+
+# Build artifacts
+dist/
+build/
+
+# Data volumes — mounted at runtime, not baked in
+data/qdrant/
+
+# Docker files themselves (no need to copy into the image)
+docker/

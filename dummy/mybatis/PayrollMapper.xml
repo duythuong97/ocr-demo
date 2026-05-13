@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.hrsystem.mapper.PayrollMapper">
+
+  <select id="findPayslipsByPeriod" parameterType="int" resultType="Payslip">
+    SELECT
+        ps.PAYSLIP_ID,
+        ps.EMP_ID,
+        CONCAT(e.FIRST_NAME, ' ', e.LAST_NAME) AS empName,
+        ps.GROSS_PAY,
+        ps.TAX_AMOUNT,
+        ps.INSURANCE,
+        ps.NET_PAY,
+        ps.STATUS
+    FROM PAYSLIPS ps
+    JOIN EMPLOYEES e ON ps.EMP_ID = e.EMP_ID
+    WHERE ps.PERIOD_ID = #{periodId}
+    ORDER BY e.LAST_NAME, e.FIRST_NAME
+  </select>
+
+  <select id="getPeriodSummary" parameterType="int" resultType="PayPeriodSummary">
+    SELECT
+        pp.PERIOD_NAME,
+        pp.START_DATE,
+        pp.END_DATE,
+        COUNT(ps.PAYSLIP_ID)   AS payslipCount,
+        SUM(ps.GROSS_PAY)      AS totalGross,
+        SUM(ps.NET_PAY)        AS totalNet,
+        SUM(ps.TAX_AMOUNT)     AS totalTax
+    FROM PAY_PERIODS pp
+    LEFT JOIN PAYSLIPS ps ON pp.PERIOD_ID = ps.PERIOD_ID
+    WHERE pp.PERIOD_ID = #{periodId}
+    GROUP BY pp.PERIOD_NAME, pp.START_DATE, pp.END_DATE
+  </select>
+
+  <insert id="insertPayslip" parameterType="Payslip" useGeneratedKeys="true" keyProperty="payslipId">
+    INSERT INTO PAYSLIPS (
+        EMP_ID, PERIOD_ID, GROSS_PAY, TAX_AMOUNT, INSURANCE, NET_PAY, STATUS
+    ) VALUES (
+        #{empId}, #{periodId}, #{grossPay}, #{taxAmount}, #{insurance}, #{netPay}, 'DRAFT'
+    )
+  </insert>
+
+  <update id="approvePayslip" parameterType="int">
+    UPDATE PAYSLIPS
+    SET STATUS       = 'APPROVED',
+        PROCESSED_BY = #{approvedBy}
+    WHERE PAYSLIP_ID = #{payslipId} AND STATUS = 'DRAFT'
+  </update>
+
+  <update id="approveAllDraftPayslips" parameterType="map">
+    UPDATE PAYSLIPS
+    SET STATUS       = 'APPROVED',
+        PROCESSED_BY = #{approvedBy}
+    WHERE PERIOD_ID = #{periodId} AND STATUS = 'DRAFT'
+  </update>
+
+  <delete id="deleteDraftPayslips" parameterType="int">
+    DELETE FROM PAYSLIPS
+    WHERE PERIOD_ID = #{periodId} AND STATUS = 'DRAFT'
+  </delete>
+
+  <select id="getAllowancesForPeriod" parameterType="map" resultType="Allowance">
+    SELECT
+        a.EMP_ID,
+        SUM(a.AMOUNT) AS totalAllowance
+    FROM ALLOWANCES a
+    JOIN EMPLOYEES e ON a.EMP_ID = e.EMP_ID
+    WHERE e.STATUS = 'ACTIVE'
+      AND a.EFFECTIVE_FROM &lt;= #{endDate}
+      AND (a.EFFECTIVE_TO IS NULL OR a.EFFECTIVE_TO &gt;= #{startDate})
+    GROUP BY a.EMP_ID
+  </select>
+
+</mapper>

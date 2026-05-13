@@ -7,7 +7,8 @@ requests>=2.31.0
 qdrant-client>=1.10.0
 sentence-transformers>=3.0.0
 numpy>=1.26.0
-tree-sitter>=0.21.0
+tree-sitter>=0.21.0,<0.22.0
+chardet>=5.0.0
 tree-sitter-c-sharp>=0.21.0
 tree-sitter-languages
 pypdf>=4.2.0
@@ -20,3 +21,7 @@ msoffcrypto-tool>=5.4.0
 python-pptx>=1.0.0
 markitdown
 markitdown[xlsx]
+# Graph pipeline
+neo4j>=5.0
+pyyaml>=6.0
+pdf2image>=1.16.0

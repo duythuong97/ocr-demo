@@ -1,22 +1,26 @@
 <nav class="app-nav">
-  <a class="app-nav-brand" href="{{ url_for('index') }}">
+  <a class="app-nav-brand" href="{{ url_for('search.index') }}">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
     </svg>
     <span>OCR Search</span>
   </a>
   <div class="app-nav-links">
-    <a href="{{ url_for('index') }}" class="app-nav-link{% if active_page == 'search' %} active{% endif %}">
+    <a href="{{ url_for('search.index') }}" class="app-nav-link{% if active_page == 'search' %} active{% endif %}">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       Search
     </a>
-    <a href="{{ url_for('indexing_page') }}" class="app-nav-link{% if active_page == 'indexing' %} active{% endif %}">
+    <a href="{{ url_for('ingest.indexing_page') }}" class="app-nav-link{% if active_page == 'ingest' %} active{% endif %}">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      Indexing
+      Ingest
     </a>
-    <a href="{{ url_for('chat_page') }}" class="app-nav-link{% if active_page == 'chat' %} active{% endif %}">
+    <a href="{{ url_for('retrieval.chat_page') }}" class="app-nav-link{% if active_page == 'retrieval' %} active{% endif %}">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      Chat
+      Retrieval
+    </a>
+    <a href="{{ url_for('knowledge.knowledge_page') }}" class="app-nav-link{% if active_page == 'knowledge' %} active{% endif %}">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      Knowledge
     </a>
   </div>
   {% if nav_right %}{{ nav_right }}{% endif %}

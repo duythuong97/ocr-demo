@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RAG Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='chat.css') }}" />
+  </head>
+  <body>
+    <div
+      class="chat-layout"
+      id="chatRoot"
+      data-chat-url="{{ url_for('retrieval.api_chat') }}"
+      data-status-url="{{ url_for('retrieval.api_chat_status') }}"
+      data-history-url="{{ url_for('retrieval.api_chat_history_get') }}"
+      data-sessions-url="{{ url_for('retrieval.api_chat_sessions') }}"
+    >
+      <!-- ── Navbar ──────────────────────────────────────────────────────── -->
+      {% set active_page = 'retrieval' %}
+      {% set nav_right %}
+      <div class="app-nav-right">
+        <div class="setting-group">
+          <label for="topKInput">Top K</label>
+          <input type="number" id="topKInput" value="{{ rag_top_k }}" min="1" max="20" />
+        </div>
+        <div class="app-nav-sep"></div>
+        <div class="status-group">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="lmStatusText">Checking…</span>
+        </div>
+        <div class="app-nav-sep"></div>
+        <button id="clearBtn" class="btn btn-sm btn-stop-style">🗑 Clear</button>
+        <button id="sidebarToggleBtn" class="btn btn-sm" title="Toggle context panel" aria-label="Toggle context panel">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/>
+          </svg>
+        </button>
+      </div>
+      {% endset %}
+      {% include '_nav.html' %}
+
+      <!-- ── Body: sessions sidebar + chat + context sidebar ───────────────── -->
+      <div class="chat-wrapper">
+
+        <!-- Sessions Sidebar (left) -->
+        <nav class="sessions-sidebar" id="sessionsSidebar">
+          <div class="sessions-sidebar-header">
+            <span class="sessions-sidebar-title">Chats</span>
+            <button id="newChatBtn" class="btn btn-sm sessions-new-btn" title="New chat">＋ New</button>
+          </div>
+          <div class="sessions-list" id="sessionsList">
+            <div class="sessions-loading">Loading…</div>
+          </div>
+        </nav>
+
+        <!-- Chat column -->
+        <div class="chat-main">
+          <!-- Messages -->
+          <div class="chat-messages" id="chatMessages">
+            <div class="chat-welcome" id="chatWelcome">
+              <div class="welcome-glow"></div>
+              <div class="welcome-icon">💬</div>
+              <h2>Ask anything about your documents</h2>
+              <p>
+                The assistant retrieves relevant context from your indexed files
+                and the knowledge graph, then answers using the AI proxy.
+              </p>
+              <div class="suggestion-chips">
+                <span class="suggestion-chip">Which function inserts data into CUSTOMER?</span>
+                <span class="suggestion-chip">How is authentication implemented?</span>
+                <span class="suggestion-chip">What are the main database tables?</span>
+                <span class="suggestion-chip">Explain the indexing architecture</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input -->
+          <div class="chat-input-area">
+            <div class="chat-input-wrap">
+              <div class="chat-input-row">
+                <textarea
+                  id="chatInput"
+                  class="chat-textarea"
+                  rows="1"
+                  placeholder="Ask a question… (Enter to send, Shift+Enter for new line)"
+                ></textarea>
+                <button id="sendBtn" class="send-btn" title="Send">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div><!-- /chat-main -->
+
+        <!-- Context Sidebar -->
+        <aside class="context-sidebar" id="contextSidebar">
+          <div class="sidebar-header">
+            <div class="sidebar-tabs">
+              <button class="sidebar-tab active" data-tab="sources" id="tabBtnSources">
+                Sources
+                <span class="sidebar-tab-badge" id="sourcesCount"></span>
+              </button>
+              <button class="sidebar-tab" data-tab="graph" id="tabBtnGraph">
+                Graph
+                <span class="sidebar-tab-badge" id="graphCount"></span>
+              </button>
+            </div>
+          </div>
+          <div class="sidebar-scroll">
+            <!-- Sources panel -->
+            <div class="sidebar-panel active" id="panelSources">
+              <div class="sidebar-hint" id="sourcesHint">Send a message to see retrieved sources.</div>
+            </div>
+            <!-- Graph panel -->
+            <div class="sidebar-panel" id="panelGraph">
+              <div class="sidebar-hint" id="graphHint">Send a message to see graph context.</div>
+            </div>
+          </div>
+        </aside><!-- /context-sidebar -->
+
+      </div><!-- /chat-wrapper -->
+    </div><!-- /chat-layout -->
+
+    <!-- Dependencies -->
+    <link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+    <script src="{{ url_for('static', filename='chat.js') }}"></script>
+  </body>
+</html>

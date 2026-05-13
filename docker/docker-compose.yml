@@ -1,0 +1,150 @@
+services:
+  # ── Flask Application ─────────────────────────────────────────────────────
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.app
+    container_name: ocr_app
+    ports:
+      - "${FLASK_PORT:-5100}:5100"
+    env_file:
+      - ../.env
+    environment:
+      # Override localhost URLs to use Docker service names
+      - SOLR_URL=http://solr:8983/solr/documents
+      - QDRANT_URL=http://qdrant:6333
+      - NEO4J_URL=bolt://neo4j:7687
+    volumes:
+      # Persist indexed source files and Qdrant snapshots across restarts
+      - app_data:/app/data
+      # Mount logs directory for easy access from host
+      - ../logs:/app/logs
+    depends_on:
+      solr:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c '</dev/tcp/localhost/5100' 2>/dev/null || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Apache Solr ────────────────────────────────────────────────────────────
+  solr:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.solr
+    container_name: solr_search
+    ports:
+      - "8983:8983"
+    environment:
+      - SOLR_JAVA_MEM=-Xms512m -Xmx1g
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://localhost:8983/solr/documents/admin/ping || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  # ── Qdrant Vector DB ──────────────────────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c '</dev/tcp/localhost/6333' 2>/dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  # ── Data Loader (runs once, then exits) ───────────────────────────────────
+  solr-init:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.init
+    container_name: solr_init
+    depends_on:
+      solr:
+        condition: service_healthy
+    restart: "no"
+
+  # ── Neo4j Graph DB ────────────────────────────────────────────────────────
+  neo4j:
+    image: neo4j:5-community
+    container_name: neo4j
+    ports:
+      - "7474:7474" # Browser UI
+      - "7687:7687" # Bolt protocol
+    volumes:
+      - neo4j_data:/data
+    environment:
+      - NEO4J_AUTH=neo4j/changeme
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_dbms_memory_heap_initial__size=256m
+      - NEO4J_dbms_memory_heap_max__size=512m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── Graph Export + Load (runs once, then exits) ──────────────────────────
+  graph-init:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.app
+    container_name: graph_init
+    env_file:
+      - ../.env
+    environment:
+      - NEO4J_URL=bolt://neo4j:7687
+    volumes:
+      - ${REPOS_ROOT:-..}:/repos:ro
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["bash", "-c"]
+    command:
+      - |
+        set -e
+        echo '==> Exporting graph to .cypher files...'
+        RUN_OUT=$(python graph/export.py --config graph/sources.yaml --output graph/exports/)
+        echo "$RUN_OUT"
+        RUN_ID=$(echo "$RUN_OUT" | grep -oP 'RUN_[0-9]{8}_[0-9]{6}' | tail -1)
+        if [ -z "$RUN_ID" ]; then
+          echo "ERROR: Could not determine Run ID from export output" >&2
+          exit 1
+        fi
+        echo "==> Loading run $RUN_ID into Neo4j..."
+        python graph/load.py --run "$RUN_ID"
+        echo '==> Validating...'
+        python graph/validate.py --run "$RUN_ID"
+        echo '==> Graph pipeline complete.'
+
+volumes:
+  app_data:
+  qdrant_data:
+  neo4j_data:
