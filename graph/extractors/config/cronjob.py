@@ -119,13 +119,13 @@ def _add_cron_node(
     file_path: str,
     context: ExtractionContext,
 ) -> None:
-    cron_qname = f"{S.LABEL_CRON_JOB}:{repository}:{job_name}"
+    cron_qname = f"{S.LABEL_JOB}:{repository}:{job_name}"
     scheduler_type = (
         context.scheduler_type
         or _FRAMEWORK_TO_SCHEDULER.get(framework, framework.lower())
     )
     result.nodes.append(GraphNode(
-        label=S.LABEL_CRON_JOB,
+        label=S.LABEL_JOB,
         key="qualified_name",
         key_value=cron_qname,
         properties={
@@ -154,7 +154,7 @@ def _add_cron_node(
     ))
 
     result.edges.append(GraphEdge(
-        from_label=S.LABEL_CRON_JOB, from_key="qualified_name", from_key_value=cron_qname,
+        from_label=S.LABEL_JOB, from_key="qualified_name", from_key_value=cron_qname,
         to_label=S.LABEL_FUNCTION, to_key="qualified_name", to_key_value=func_qname,
         rel_type=S.REL_TRIGGERS,
         properties={"schedule": schedule, "framework": framework},

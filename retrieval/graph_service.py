@@ -348,19 +348,19 @@ class GraphService:
         )
         api_endpoints = self.run(
             """
-            MATCH (t:Table)<-[:WRITES_TO]-(f)
+            MATCH (t:Table)<-[:WRITES_TO|READS_FROM]-(f)
             WHERE toUpper(t.name) = $table
-            MATCH (ep:ApiEndpoint)-[:HANDLED_BY]->(f)
-            RETURN ep.qualified_name AS ep_qname, ep.method AS method, ep.path AS path,
+            MATCH (ep:ApiEndpoint)-[:HANDLED_BY|CALLS|BELONGS_TO*1..3]->(f)
+            RETURN DISTINCT ep.qualified_name AS ep_qname, ep.method AS method, ep.path AS path,
                    ep.service AS service, f.name AS fn_name
             """,
             {"table": table},
         )
         cron_jobs = self.run(
             """
-            MATCH (t:Table)<-[:WRITES_TO]-(f)
+            MATCH (t:Table)<-[:WRITES_TO|READS_FROM]-(f)
             WHERE toUpper(t.name) = $table
-            MATCH (cj:Workflow)-[:TRIGGERS|EXECUTES]->(f)
+            MATCH (cj:Job)-[:CALLS|EXECUTES|TRIGGERS]->(f)
             RETURN cj.qualified_name AS cj_qname, cj.name AS cj_name,
                    cj.schedule AS schedule, cj.framework AS framework,
                    f.name AS fn_name
@@ -376,17 +376,39 @@ class GraphService:
         }
 
     def get_service_tables(self, service: str) -> list[dict]:
-        """All tables a *service* reads or writes."""
+        """All tables a *service* reads or writes.
+
+        Tries two strategies:
+        1. Traverse from ApiService via CONTAINS edges (new graph model).
+        2. Legacy fallback: functions with f.service matching the service name.
+        """
         rows = self.run(
             """
-            MATCH (f)-[r:WRITES_TO|READS_FROM]->(t:Table)
-            WHERE f.service = $svc OR f.qualified_name STARTS WITH ('Function:' + $svc)
+            MATCH (svc)
+            WHERE (svc:ApiService OR svc:Module OR svc:Service)
+              AND (svc.name = $svc OR svc.service_id = $svc
+                   OR toLower(svc.name) = toLower($svc))
+            MATCH (svc)-[:CONTAINS*1..3]->(f)-[r:WRITES_TO|READS_FROM]->(t:Table)
             RETURN t.name AS table_name, t.repository AS repository,
                    type(r) AS rel_type, collect(DISTINCT f.name) AS functions
             ORDER BY t.name
             """,
             {"svc": service},
         )
+        if not rows:
+            # Legacy fallback: f.service property
+            rows = self.run(
+                """
+                MATCH (f)-[r:WRITES_TO|READS_FROM]->(t:Table)
+                WHERE f.service = $svc
+                   OR f.qualified_name STARTS WITH ('Function:' + $svc)
+                   OR f.qualified_name STARTS WITH ('Procedure:' + $svc)
+                RETURN t.name AS table_name, t.repository AS repository,
+                       type(r) AS rel_type, collect(DISTINCT f.name) AS functions
+                ORDER BY t.name
+                """,
+                {"svc": service},
+            )
         return [dict(r) for r in rows]
 
     def get_api_impact(self, method: str, path: str) -> list[dict]:
@@ -422,3 +444,165 @@ class GraphService:
         """All distinct node labels in the graph."""
         rows = self.run("CALL db.labels() YIELD label RETURN label ORDER BY label")
         return [r["label"] for r in rows]
+
+    # ── Scalable context methods (prevents LLM context overflow) ──────────────
+
+    def get_node_context(
+        self,
+        qualified_name: str,
+        limit: int = 10,
+    ) -> tuple[dict, list[dict], dict]:
+        """Return node properties + neighbor COUNTS grouped by (rel_type, label).
+
+        Unlike get_neighbors() which returns all edges (can overflow context for
+        large nodes), this returns aggregate counts so the LLM can decide which
+        specific sub-query to issue next.
+
+        Returns ``(result_dict, text_docs, graph_payload)`` compatible with
+        the ``execute_tool`` contract in ``tools.py``.
+        """
+        if not self.available:
+            return {"error": "Graph database unavailable."}, [], {}
+
+        bare = self.extract_bare_name(qualified_name)
+        bare_lower = bare.lower()
+
+        # Find the node
+        node_rows = self._client.run(  # type: ignore[union-attr]
+            """
+            MATCH (a)
+            WHERE a.qualified_name = $qname
+               OR a.qualified_name ENDS WITH $colon_suffix
+               OR toLower(a.name) = $bare_lower
+               OR toLower(a.qualified_name) CONTAINS $bare_lower
+            RETURN a, labels(a)[0] AS label
+            LIMIT 1
+            """,
+            {
+                "qname": qualified_name,
+                "colon_suffix": f":{bare}",
+                "bare_lower": bare_lower,
+            },
+        )
+        if not node_rows:
+            return (
+                {"qualified_name": qualified_name, "error": f"Node not found: {qualified_name}"},
+                [],
+                {},
+            )
+
+        node = dict(node_rows[0]["a"].items())
+        node_label = node_rows[0]["label"]
+        node_qname = node.get("qualified_name", qualified_name)
+
+        # Outgoing neighbor counts
+        out_rows = self._client.run(  # type: ignore[union-attr]
+            """
+            MATCH (a)
+            WHERE a.qualified_name = $qname
+            WITH a
+            MATCH (a)-[r]->(b)
+            RETURN type(r) AS rel_type, labels(b)[0] AS nb_label, count(*) AS cnt
+            ORDER BY cnt DESC
+            LIMIT $limit
+            """,
+            {"qname": node_qname, "limit": limit},
+        )
+        # Incoming neighbor counts
+        in_rows = self._client.run(  # type: ignore[union-attr]
+            """
+            MATCH (a)
+            WHERE a.qualified_name = $qname
+            WITH a
+            MATCH (b)-[r]->(a)
+            RETURN type(r) AS rel_type, labels(b)[0] AS nb_label, count(*) AS cnt
+            ORDER BY cnt DESC
+            LIMIT $limit
+            """,
+            {"qname": node_qname, "limit": limit},
+        )
+
+        out_summary = [
+            {"direction": "out", "rel_type": r["rel_type"], "label": r["nb_label"], "count": r["cnt"]}
+            for r in (out_rows or [])
+        ]
+        in_summary = [
+            {"direction": "in", "rel_type": r["rel_type"], "label": r["nb_label"], "count": r["cnt"]}
+            for r in (in_rows or [])
+        ]
+        connections = out_summary + in_summary
+
+        result = {
+            "qualified_name": node_qname,
+            "label": node_label,
+            "properties": node,
+            "connections_summary": connections,
+        }
+
+        lines = [f"Context for {node_qname} ({node_label}):"]
+        for k, v in node.items():
+            if v is not None and k != "qualified_name":
+                lines.append(f"  {k}: {v}")
+        lines.append("Connections (summary — use get_graph_neighbors to drill down):")
+        for c in connections:
+            arrow = "-->" if c["direction"] == "out" else "<--"
+            lines.append(f"  [{c['count']}x] {arrow}{c['rel_type']}{arrow} :{c['label']}")
+
+        text_doc = {
+            "file": f"graph:context:{node_qname}",
+            "file_path": f"graph:context:{node_qname}",
+            "text": "\n".join(lines),
+            "score": 1.0,
+        }
+        return result, [text_doc], {}
+
+    def get_landscape_overview(self) -> tuple[dict, list[dict], dict]:
+        """Return all landscape-tier nodes (ApiService, Database, FrontendApp, etc.) and their edges.
+
+        Useful for high-level architecture questions.
+        """
+        if not self.available:
+            return {"error": "Graph database unavailable."}, [], {}
+
+        landscape_labels = [
+            "ApiService", "Database", "FrontendApp", "JobPlatform",
+            "Storage", "ExternalService",
+        ]
+        label_filter = " OR ".join(f"n:{lbl}" for lbl in landscape_labels)
+
+        nodes_rows = self._client.run(  # type: ignore[union-attr]
+            f"""
+            MATCH (n)
+            WHERE {label_filter}
+            RETURN labels(n)[0] AS label, n.qualified_name AS qname, n.name AS name,
+                   n.description AS description
+            ORDER BY label, name
+            """,
+        )
+        edges_rows = self._client.run(  # type: ignore[union-attr]
+            f"""
+            MATCH (a)-[r]->(b)
+            WHERE ({label_filter.replace('n:', 'a:')})
+              AND ({label_filter.replace('n:', 'b:')})
+            RETURN a.qualified_name AS from_qname, type(r) AS rel, b.qualified_name AS to_qname
+            """,
+        )
+
+        nodes = [{"label": r["label"], "qname": r["qname"], "name": r["name"]} for r in (nodes_rows or [])]
+        edges = [{"from": r["from_qname"], "rel": r["rel"], "to": r["to_qname"]} for r in (edges_rows or [])]
+
+        lines = ["Landscape overview — top-level architecture nodes:"]
+        for n in nodes:
+            lines.append(f"  [{n['label']}] {n['name']}  ({n['qname']})")
+        if edges:
+            lines.append("Landscape relationships:")
+            for e in edges:
+                lines.append(f"  {e['from']} --{e['rel']}--> {e['to']}")
+
+        text_doc = {
+            "file": "graph:landscape_overview",
+            "file_path": "graph:landscape_overview",
+            "text": "\n".join(lines),
+            "score": 1.0,
+        }
+        return {"nodes": nodes, "edges": edges}, [text_doc], {}

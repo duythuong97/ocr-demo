@@ -14,11 +14,17 @@ services:
       - SOLR_URL=http://solr:8983/solr/documents
       - QDRANT_URL=http://qdrant:6333
       - NEO4J_URL=bolt://neo4j:7687
+      - LLM_BASE_URL=http://ollama:11434/v1
     volumes:
       # Persist indexed source files and Qdrant snapshots across restarts
       - app_data:/app/data
       # Mount logs directory for easy access from host
       - ../logs:/app/logs
+      # Mount host repositories so ingest can read source files.
+      # Set REPOS_ROOT in .env to your local repos folder, e.g.:
+      #   REPOS_ROOT=/Users/you/projects
+      # Inside the container files are accessible at /repos/<repo-name>
+      - ${REPOS_ROOT:-..}:/repos:ro
     depends_on:
       solr:
         condition: service_healthy
@@ -26,6 +32,10 @@ services:
         condition: service_healthy
       neo4j:
         condition: service_healthy
+      ollama:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test:
@@ -110,6 +120,48 @@ services:
       retries: 10
       start_period: 30s
 
+  # ── Ollama LLM server ──────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    # Uncomment the block below to enable NVIDIA GPU passthrough:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # ── Pull Ollama model (runs once, then exits) ─────────────────────────────
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: ollama_init
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        echo "==> Pulling model $OLLAMA_MODEL..."
+        ollama pull $OLLAMA_MODEL
+        echo "==> Model ready."
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
   # ── Graph Export + Load (runs once, then exits) ──────────────────────────
   graph-init:
     build:
@@ -148,3 +200,4 @@ volumes:
   app_data:
   qdrant_data:
   neo4j_data:
+  ollama_models:

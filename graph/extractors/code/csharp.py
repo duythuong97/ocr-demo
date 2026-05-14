@@ -89,10 +89,10 @@ class CSharpSqlExtractor(BaseExtractor):
         class_spans = _build_spans(_CLASS_PATTERN, text)
         method_spans = _build_spans(_METHOD_PATTERN, text)
 
-        # Ensure Service node exists
-        svc_qname = f"{S.LABEL_SERVICE}:{repository}:{service_name}"
+        # Ensure Module node (namespace/service grouper)
+        svc_qname = f"{S.LABEL_MODULE}:{repository}:{service_name}"
         result.nodes.append(GraphNode(
-            label=S.LABEL_SERVICE,
+            label=S.LABEL_MODULE,
             key="qualified_name",
             key_value=svc_qname,
             properties={
@@ -114,12 +114,13 @@ class CSharpSqlExtractor(BaseExtractor):
             class_name = _resolve_span(class_spans, start_line) or "Unknown"
             method_name = _resolve_span(method_spans, start_line) or "Unknown"
 
-            class_qname = f"{S.LABEL_CLASS}:{repository}:{namespace}.{class_name}" if namespace else f"{S.LABEL_CLASS}:{repository}:{class_name}"
+            class_label = _classify_class(class_name)
+            class_qname = f"{class_label}:{repository}:{namespace}.{class_name}" if namespace else f"{class_label}:{repository}:{class_name}"
             func_qname = f"{S.LABEL_FUNCTION}:{repository}:{namespace}.{class_name}.{method_name}" if namespace else f"{S.LABEL_FUNCTION}:{repository}:{class_name}.{method_name}"
 
             # Ensure Class node
             _add_unique_node(result, GraphNode(
-                label=S.LABEL_CLASS,
+                label=class_label,
                 key="qualified_name",
                 key_value=class_qname,
                 properties={
@@ -149,16 +150,16 @@ class CSharpSqlExtractor(BaseExtractor):
                 },
             ))
 
-            # Class → Service
+            # Class → Module
             result.edges.append(GraphEdge(
-                from_label=S.LABEL_CLASS, from_key="qualified_name", from_key_value=class_qname,
-                to_label=S.LABEL_SERVICE, to_key="qualified_name", to_key_value=svc_qname,
+                from_label=class_label, from_key="qualified_name", from_key_value=class_qname,
+                to_label=S.LABEL_MODULE, to_key="qualified_name", to_key_value=svc_qname,
                 rel_type=S.REL_BELONGS_TO,
             ))
             # Function → Class
             result.edges.append(GraphEdge(
                 from_label=S.LABEL_FUNCTION, from_key="qualified_name", from_key_value=func_qname,
-                to_label=S.LABEL_CLASS, to_key="qualified_name", to_key_value=class_qname,
+                to_label=class_label, to_key="qualified_name", to_key_value=class_qname,
                 rel_type=S.REL_BELONGS_TO,
             ))
 
@@ -222,10 +223,10 @@ class CSharpSqlExtractor(BaseExtractor):
                 if namespace
                 else f"{S.LABEL_FUNCTION}:{repository}:{class_name}.{method_name}"
             )
-            target_qname = f"{S.LABEL_FUNCTION}:{repository}:{proc_name.upper()}"
+            target_qname = f"{S.LABEL_PROCEDURE}:{repository}:{proc_name.upper()}"
             result.edges.append(GraphEdge(
                 from_label=S.LABEL_FUNCTION, from_key="qualified_name", from_key_value=func_qname,
-                to_label=S.LABEL_FUNCTION,   to_key="qualified_name", to_key_value=target_qname,
+                to_label=S.LABEL_PROCEDURE,  to_key="qualified_name", to_key_value=target_qname,
                 rel_type=S.REL_CALLS,
                 properties={"proc_name": proc_name, "call_type": "StoredProcedure",
                             "source_file": file_path, "line": start_line + 1},
@@ -248,10 +249,10 @@ class CSharpSqlExtractor(BaseExtractor):
                 if namespace
                 else f"{S.LABEL_FUNCTION}:{repository}:{class_name}.{method_name}"
             )
-            target_qname = f"{S.LABEL_FUNCTION}:{repository}:{proc_name.upper()}"
+            target_qname = f"{S.LABEL_PROCEDURE}:{repository}:{proc_name.upper()}"
             result.edges.append(GraphEdge(
                 from_label=S.LABEL_FUNCTION, from_key="qualified_name", from_key_value=func_qname,
-                to_label=S.LABEL_FUNCTION,   to_key="qualified_name", to_key_value=target_qname,
+                to_label=S.LABEL_PROCEDURE,  to_key="qualified_name", to_key_value=target_qname,
                 rel_type=S.REL_CALLS,
                 properties={"proc_name": proc_name, "call_type": "StoredProcedure",
                             "source_file": file_path, "line": start_line + 1},
@@ -279,6 +280,16 @@ class CSharpSqlExtractor(BaseExtractor):
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _classify_class(class_name: str) -> str:
+    """Return the appropriate graph label for a C# class based on naming conventions."""
+    upper = class_name.upper()
+    if upper.endswith("CONTROLLER"):
+        return S.LABEL_API_CONTROLLER
+    if upper.endswith(("REPOSITORY", "REPO", "DAO")):
+        return S.LABEL_REPOSITORY_CLASS
+    return S.LABEL_SERVICE_CLASS
+
 
 def _extract_namespace(text: str) -> str:
     m = _NS_PATTERN.search(text)

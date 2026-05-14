@@ -68,10 +68,10 @@ class EfDbContextExtractor(BaseExtractor):
         for m_ctx in _DBCONTEXT_CLASS.finditer(text):
             ctx_name = m_ctx.group(1)
             ctx_qname = f"{namespace}.{ctx_name}" if namespace else ctx_name
-            ctx_node_qname = f"Class:{ctx_qname}"
+            ctx_node_qname = f"RepositoryClass:{ctx_qname}"
 
             result.nodes.append(GraphNode(
-                label=S.LABEL_CLASS,
+                label=S.LABEL_REPOSITORY_CLASS,
                 key="qualified_name",
                 key_value=ctx_node_qname,
                 properties={
@@ -112,7 +112,7 @@ class EfDbContextExtractor(BaseExtractor):
                 # DbContext reads from AND writes to the table (EF is bi-directional)
                 for rel in (S.REL_READS_FROM, S.REL_WRITES_TO):
                     result.edges.append(GraphEdge(
-                        from_label=S.LABEL_CLASS,
+                        from_label=S.LABEL_REPOSITORY_CLASS,
                         from_key="qualified_name",
                         from_key_value=ctx_node_qname,
                         to_label=S.LABEL_TABLE,

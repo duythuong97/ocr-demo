@@ -184,11 +184,11 @@ class YamlJobsExtractor(BaseExtractor):
                     continue
 
                 repo = step_def.get("repository") or plsql_repo
-                fn_qname = f"{S.LABEL_FUNCTION}:{repo}:{pkg}.{proc}"
+                fn_qname = f"{S.LABEL_PROCEDURE}:{repo}:{pkg}.{proc}"
 
-                # Stub Function node — MERGEs with the real node if already loaded
+                # Stub Procedure node — MERGEs with the real node when oracle_plsql extractor runs
                 _add_unique(result, GraphNode(
-                    label=S.LABEL_FUNCTION,
+                    label=S.LABEL_PROCEDURE,
                     key="qualified_name",
                     key_value=fn_qname,
                     properties={
@@ -200,7 +200,7 @@ class YamlJobsExtractor(BaseExtractor):
                 result.edges.append(GraphEdge(
                     from_label=S.LABEL_JOB, from_key="qualified_name",
                     from_key_value=job_qname,
-                    to_label=S.LABEL_FUNCTION, to_key="qualified_name",
+                    to_label=S.LABEL_PROCEDURE, to_key="qualified_name",
                     to_key_value=fn_qname,
                     rel_type=S.REL_CALLS,
                     properties={

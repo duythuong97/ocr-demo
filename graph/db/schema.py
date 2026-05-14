@@ -107,21 +107,41 @@ REL_MENTIONS = "MENTIONS"
 # ── Schema DDL ────────────────────────────────────────────────────────────────
 # (qualified_name is the universal unique key across all code-layer nodes)
 _CONSTRAINTS = [
+    # ── Legacy labels (backward compat) ──────────────────────────────────────
     ("constraint_table_name",    f"CREATE CONSTRAINT constraint_table_name    IF NOT EXISTS FOR (n:{LABEL_TABLE})    REQUIRE n.qualified_name IS UNIQUE"),
     ("constraint_function_qn",   f"CREATE CONSTRAINT constraint_function_qn   IF NOT EXISTS FOR (n:{LABEL_FUNCTION}) REQUIRE n.qualified_name IS UNIQUE"),
     ("constraint_class_qn",      f"CREATE CONSTRAINT constraint_class_qn      IF NOT EXISTS FOR (n:{LABEL_CLASS})    REQUIRE n.qualified_name IS UNIQUE"),
-    ("constraint_service_class_qn", f"CREATE CONSTRAINT constraint_service_class_qn IF NOT EXISTS FOR (n:{LABEL_SERVICE_CLASS}) REQUIRE n.qualified_name IS UNIQUE"),
     ("constraint_service_name",  f"CREATE CONSTRAINT constraint_service_name  IF NOT EXISTS FOR (n:{LABEL_SERVICE})  REQUIRE n.qualified_name IS UNIQUE"),
     ("constraint_domain_name",   f"CREATE CONSTRAINT constraint_domain_name   IF NOT EXISTS FOR (n:{LABEL_DOMAIN})   REQUIRE n.qualified_name IS UNIQUE"),
-    ("constraint_api_key",       f"CREATE CONSTRAINT constraint_api_key       IF NOT EXISTS FOR (n:{LABEL_API_ENDPOINT}) REQUIRE n.qualified_name IS UNIQUE"),
     ("constraint_workflow_key",  f"CREATE CONSTRAINT constraint_workflow_key  IF NOT EXISTS FOR (n:{LABEL_WORKFLOW})  REQUIRE n.qualified_name IS UNIQUE"),
     ("constraint_task_key",      f"CREATE CONSTRAINT constraint_task_key      IF NOT EXISTS FOR (n:{LABEL_TASK})      REQUIRE n.qualified_name IS UNIQUE"),
     ("constraint_document_key",  f"CREATE CONSTRAINT constraint_document_key  IF NOT EXISTS FOR (n:{LABEL_DOCUMENT})  REQUIRE n.qualified_name IS UNIQUE"),
     ("constraint_file_path",     f"CREATE CONSTRAINT constraint_file_path     IF NOT EXISTS FOR (n:{LABEL_FILE})     REQUIRE n.qualified_name IS UNIQUE"),
     ("constraint_repo_name",     f"CREATE CONSTRAINT constraint_repo_name     IF NOT EXISTS FOR (n:{LABEL_REPOSITORY}) REQUIRE n.qualified_name IS UNIQUE"),
+    # ── New labels (Phase 2 migration) ───────────────────────────────────────
+    ("constraint_api_endpoint_qn",       f"CREATE CONSTRAINT constraint_api_endpoint_qn       IF NOT EXISTS FOR (n:{LABEL_API_ENDPOINT})       REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_service_class_qn",      f"CREATE CONSTRAINT constraint_service_class_qn      IF NOT EXISTS FOR (n:{LABEL_SERVICE_CLASS})      REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_api_controller_qn",     f"CREATE CONSTRAINT constraint_api_controller_qn     IF NOT EXISTS FOR (n:{LABEL_API_CONTROLLER})     REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_repository_class_qn",   f"CREATE CONSTRAINT constraint_repository_class_qn   IF NOT EXISTS FOR (n:{LABEL_REPOSITORY_CLASS})   REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_plsql_package_qn",      f"CREATE CONSTRAINT constraint_plsql_package_qn      IF NOT EXISTS FOR (n:{LABEL_PLSQL_PACKAGE})      REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_procedure_qn",          f"CREATE CONSTRAINT constraint_procedure_qn          IF NOT EXISTS FOR (n:{LABEL_PROCEDURE})          REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_sql_function_qn",       f"CREATE CONSTRAINT constraint_sql_function_qn       IF NOT EXISTS FOR (n:{LABEL_SQL_FUNCTION})       REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_trigger_qn",            f"CREATE CONSTRAINT constraint_trigger_qn            IF NOT EXISTS FOR (n:{LABEL_TRIGGER})            REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_job_qn",                f"CREATE CONSTRAINT constraint_job_qn                IF NOT EXISTS FOR (n:{LABEL_JOB})                REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_project_qn",            f"CREATE CONSTRAINT constraint_project_qn            IF NOT EXISTS FOR (n:{LABEL_PROJECT})            REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_module_qn",             f"CREATE CONSTRAINT constraint_module_qn             IF NOT EXISTS FOR (n:{LABEL_MODULE})             REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_api_service_qn",        f"CREATE CONSTRAINT constraint_api_service_qn        IF NOT EXISTS FOR (n:{LABEL_API_SERVICE})        REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_database_qn",           f"CREATE CONSTRAINT constraint_database_qn           IF NOT EXISTS FOR (n:{LABEL_DATABASE})           REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_frontend_app_qn",       f"CREATE CONSTRAINT constraint_frontend_app_qn       IF NOT EXISTS FOR (n:{LABEL_FRONTEND_APP})       REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_job_platform_qn",       f"CREATE CONSTRAINT constraint_job_platform_qn       IF NOT EXISTS FOR (n:{LABEL_JOB_PLATFORM})       REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_storage_qn",            f"CREATE CONSTRAINT constraint_storage_qn            IF NOT EXISTS FOR (n:{LABEL_STORAGE})            REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_external_service_qn",   f"CREATE CONSTRAINT constraint_external_service_qn   IF NOT EXISTS FOR (n:{LABEL_EXTERNAL_SERVICE})   REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_frontend_component_qn", f"CREATE CONSTRAINT constraint_frontend_component_qn IF NOT EXISTS FOR (n:{LABEL_FRONTEND_COMPONENT}) REQUIRE n.qualified_name IS UNIQUE"),
+    ("constraint_event_topic_qn",        f"CREATE CONSTRAINT constraint_event_topic_qn        IF NOT EXISTS FOR (n:{LABEL_EVENT_TOPIC})        REQUIRE n.qualified_name IS UNIQUE"),
 ]
 
 _INDEXES = [
+    # ── Legacy ────────────────────────────────────────────────────────────────
     ("index_table_name",         f"CREATE INDEX index_table_name         IF NOT EXISTS FOR (n:{LABEL_TABLE})      ON (n.name)"),
     ("index_function_name",      f"CREATE INDEX index_function_name      IF NOT EXISTS FOR (n:{LABEL_FUNCTION})   ON (n.name)"),
     ("index_service_name",       f"CREATE INDEX index_service_name       IF NOT EXISTS FOR (n:{LABEL_SERVICE})    ON (n.name)"),
@@ -130,6 +150,20 @@ _INDEXES = [
     ("index_workflow_scheduler", f"CREATE INDEX index_workflow_scheduler IF NOT EXISTS FOR (n:{LABEL_WORKFLOW})   ON (n.scheduler_type)"),
     ("index_task_name",          f"CREATE INDEX index_task_name          IF NOT EXISTS FOR (n:{LABEL_TASK})       ON (n.name)"),
     ("index_repo_source",        f"CREATE INDEX index_repo_source        IF NOT EXISTS FOR (n:{LABEL_REPOSITORY}) ON (n.source)"),
+    # ── New labels ────────────────────────────────────────────────────────────
+    ("index_plsql_package_name", f"CREATE INDEX index_plsql_package_name IF NOT EXISTS FOR (n:{LABEL_PLSQL_PACKAGE})      ON (n.name)"),
+    ("index_procedure_name",     f"CREATE INDEX index_procedure_name     IF NOT EXISTS FOR (n:{LABEL_PROCEDURE})          ON (n.name)"),
+    ("index_sql_function_name",  f"CREATE INDEX index_sql_function_name  IF NOT EXISTS FOR (n:{LABEL_SQL_FUNCTION})       ON (n.name)"),
+    ("index_trigger_name",       f"CREATE INDEX index_trigger_name       IF NOT EXISTS FOR (n:{LABEL_TRIGGER})            ON (n.name)"),
+    ("index_api_controller_name",f"CREATE INDEX index_api_controller_name IF NOT EXISTS FOR (n:{LABEL_API_CONTROLLER})   ON (n.name)"),
+    ("index_repo_class_name",    f"CREATE INDEX index_repo_class_name    IF NOT EXISTS FOR (n:{LABEL_REPOSITORY_CLASS})  ON (n.name)"),
+    ("index_service_class_name", f"CREATE INDEX index_service_class_name IF NOT EXISTS FOR (n:{LABEL_SERVICE_CLASS})     ON (n.name)"),
+    ("index_job_name",           f"CREATE INDEX index_job_name           IF NOT EXISTS FOR (n:{LABEL_JOB})               ON (n.name)"),
+    ("index_job_scheduler",      f"CREATE INDEX index_job_scheduler      IF NOT EXISTS FOR (n:{LABEL_JOB})               ON (n.scheduler_type)"),
+    ("index_api_service_name",   f"CREATE INDEX index_api_service_name   IF NOT EXISTS FOR (n:{LABEL_API_SERVICE})       ON (n.name)"),
+    ("index_module_name",        f"CREATE INDEX index_module_name        IF NOT EXISTS FOR (n:{LABEL_MODULE})            ON (n.name)"),
+    ("index_frontend_app_name",  f"CREATE INDEX index_frontend_app_name  IF NOT EXISTS FOR (n:{LABEL_FRONTEND_APP})      ON (n.name)"),
+    ("index_frontend_comp_name", f"CREATE INDEX index_frontend_comp_name IF NOT EXISTS FOR (n:{LABEL_FRONTEND_COMPONENT}) ON (n.name)"),
 ]
 
 

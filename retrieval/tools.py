@@ -85,7 +85,9 @@ TOOLS: list[dict] = [
                         "type": "string",
                         "description": (
                             "Optional: restrict the starting node to this Neo4j label "
-                            "(e.g. 'Table', 'Function', 'ApiEndpoint', 'Workflow', 'Task', 'Service', 'Document')."
+                            "(e.g. 'Table', 'Function', 'Procedure', 'SQLFunction', 'Trigger', "
+                            "'PLSQLPackage', 'ApiController', 'ServiceClass', 'RepositoryClass', "
+                            "'ApiEndpoint', 'Job', 'ApiService', 'Module', 'Document')."
                         ),
                     },
                 },
@@ -113,11 +115,52 @@ TOOLS: list[dict] = [
                         "type": "string",
                         "description": (
                             "Optional node label filter "
-                            "(e.g. 'Table', 'Function', 'Service', 'Workflow', 'Task')."
+                            "(e.g. 'Table', 'Procedure', 'PLSQLPackage', 'ApiController', "
+                            "'ServiceClass', 'RepositoryClass', 'Job', 'ApiService', 'Module')."
                         ),
                     },
                 },
                 "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_node_context",
+            "description": (
+                "Get a summary of a graph node's properties and COUNTS of its connections, "
+                "grouped by relationship type and neighbor label. "
+                "Use this INSTEAD of get_graph_neighbors when a node might have hundreds of "
+                "neighbors (e.g. a large PLSQLPackage, Table, or ApiService). "
+                "Returns aggregate counts — then drill down with get_graph_neighbors on a "
+                "specific relationship type if needed."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "qualified_name": {
+                        "type": "string",
+                        "description": "Node name or qualified_name to inspect.",
+                    },
+                },
+                "required": ["qualified_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_landscape_overview",
+            "description": (
+                "Return all top-level architecture nodes (ApiService, Database, FrontendApp, "
+                "JobPlatform, Storage, ExternalService) and their inter-connections. "
+                "Use this for high-level architecture questions like "
+                "'what services exist?', 'how are systems connected?'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
             },
         },
     },
@@ -211,12 +254,36 @@ def _exec_search_graph_nodes(
         return {"error": str(exc), "nodes": []}, [], {}
 
 
+def _exec_get_node_context(
+    qualified_name: str,
+) -> tuple[dict, list[dict], dict]:
+    if services.graph_service is None or not services.graph_service.available:
+        return {"error": "Graph database unavailable."}, [], {}
+    try:
+        return services.graph_service.get_node_context(qualified_name=qualified_name)
+    except Exception as exc:
+        logger.error("get_node_context failed: %s", exc)
+        return {"error": str(exc)}, [], {}
+
+
+def _exec_get_landscape_overview() -> tuple[dict, list[dict], dict]:
+    if services.graph_service is None or not services.graph_service.available:
+        return {"error": "Graph database unavailable."}, [], {}
+    try:
+        return services.graph_service.get_landscape_overview()
+    except Exception as exc:
+        logger.error("get_landscape_overview failed: %s", exc)
+        return {"error": str(exc)}, [], {}
+
+
 # ── Dispatch ───────────────────────────────────────────────────────
 
 _EXECUTORS = {
     "search_documents": _exec_search_documents,
     "get_graph_neighbors": _exec_get_graph_neighbors,
     "search_graph_nodes": _exec_search_graph_nodes,
+    "get_node_context": _exec_get_node_context,
+    "get_landscape_overview": lambda: _exec_get_landscape_overview(),
 }
 
 

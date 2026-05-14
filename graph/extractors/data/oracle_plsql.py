@@ -185,9 +185,9 @@ class OraclePlSqlExtractor(BaseExtractor):
         pm = _PKG_RE.search(text)
         if pm:
             pkg_name = pm.group(1).upper()
-            pkg_qname = f"{S.LABEL_CLASS}:{repository}:{pkg_name}"
+            pkg_qname = f"{S.LABEL_PLSQL_PACKAGE}:{repository}:{pkg_name}"
             _add_unique(result, GraphNode(
-                label=S.LABEL_CLASS,
+                label=S.LABEL_PLSQL_PACKAGE,
                 key="qualified_name",
                 key_value=pkg_qname,
                 properties={
@@ -203,16 +203,19 @@ class OraclePlSqlExtractor(BaseExtractor):
 
         # ── Procedure / Function spans ────────────────────────────────────────
         # spans: sorted list of (line_no, func_qname) used to assign SQL ops
+        # span_labels: maps qname → label for building typed edges
         spans: list[tuple[int, str]] = []
+        span_labels: dict[str, str] = {}
 
         for m in _PROC_RE.finditer(text):
             fn = m.group(1).upper()
             full = f"{pkg_name}.{fn}" if pkg_name else fn
-            qname = f"{S.LABEL_FUNCTION}:{repository}:{full}"
+            qname = f"{S.LABEL_PROCEDURE}:{repository}:{full}"
             line = _line_of(text, m.start())
             spans.append((line, qname))
+            span_labels[qname] = S.LABEL_PROCEDURE
             _add_unique(result, GraphNode(
-                label=S.LABEL_FUNCTION,
+                label=S.LABEL_PROCEDURE,
                 key="qualified_name",
                 key_value=qname,
                 properties={
@@ -228,19 +231,20 @@ class OraclePlSqlExtractor(BaseExtractor):
             ))
             if pkg_qname:
                 result.edges.append(GraphEdge(
-                    from_label=S.LABEL_FUNCTION, from_key="qualified_name", from_key_value=qname,
-                    to_label=S.LABEL_CLASS,    to_key="qualified_name", to_key_value=pkg_qname,
+                    from_label=S.LABEL_PROCEDURE, from_key="qualified_name", from_key_value=qname,
+                    to_label=S.LABEL_PLSQL_PACKAGE, to_key="qualified_name", to_key_value=pkg_qname,
                     rel_type=S.REL_BELONGS_TO,
                 ))
 
         for m in _FUNC_RE.finditer(text):
             fn = m.group(1).upper()
             full = f"{pkg_name}.{fn}" if pkg_name else fn
-            qname = f"{S.LABEL_FUNCTION}:{repository}:{full}"
+            qname = f"{S.LABEL_SQL_FUNCTION}:{repository}:{full}"
             line = _line_of(text, m.start())
             spans.append((line, qname))
+            span_labels[qname] = S.LABEL_SQL_FUNCTION
             _add_unique(result, GraphNode(
-                label=S.LABEL_FUNCTION,
+                label=S.LABEL_SQL_FUNCTION,
                 key="qualified_name",
                 key_value=qname,
                 properties={
@@ -256,8 +260,8 @@ class OraclePlSqlExtractor(BaseExtractor):
             ))
             if pkg_qname:
                 result.edges.append(GraphEdge(
-                    from_label=S.LABEL_FUNCTION, from_key="qualified_name", from_key_value=qname,
-                    to_label=S.LABEL_CLASS,    to_key="qualified_name", to_key_value=pkg_qname,
+                    from_label=S.LABEL_SQL_FUNCTION, from_key="qualified_name", from_key_value=qname,
+                    to_label=S.LABEL_PLSQL_PACKAGE,  to_key="qualified_name", to_key_value=pkg_qname,
                     rel_type=S.REL_BELONGS_TO,
                 ))
 
@@ -265,11 +269,13 @@ class OraclePlSqlExtractor(BaseExtractor):
 
         # Fallback when no procedures found (e.g. anonymous block or .fnc/.prc with single body)
         fallback_qname: str | None = None
+        fallback_label: str = S.LABEL_PROCEDURE
         if not spans:
             stem = Path(file_path).stem.upper()
-            fallback_qname = f"{S.LABEL_FUNCTION}:{repository}:{stem}"
+            fallback_qname = f"{S.LABEL_PROCEDURE}:{repository}:{stem}"
+            span_labels[fallback_qname] = S.LABEL_PROCEDURE
             _add_unique(result, GraphNode(
-                label=S.LABEL_FUNCTION,
+                label=S.LABEL_PROCEDURE,
                 key="qualified_name",
                 key_value=fallback_qname,
                 properties={
@@ -328,6 +334,7 @@ class OraclePlSqlExtractor(BaseExtractor):
             func_qname = _resolve(spans, line_no) or fallback_qname
             if not func_qname:
                 continue
+            func_label = span_labels.get(func_qname, fallback_label)
 
             # Apply schema prefix fallback: unqualified names → ctx_schema.NAME
             full_tbl_name = (
@@ -351,8 +358,8 @@ class OraclePlSqlExtractor(BaseExtractor):
             ))
             rel = S.REL_WRITES_TO if op in ("INSERT", "UPDATE", "DELETE", "MERGE") else S.REL_READS_FROM
             result.edges.append(GraphEdge(
-                from_label=S.LABEL_FUNCTION, from_key="qualified_name", from_key_value=func_qname,
-                to_label=S.LABEL_TABLE,     to_key="qualified_name", to_key_value=tbl_qname,
+                from_label=func_label, from_key="qualified_name", from_key_value=func_qname,
+                to_label=S.LABEL_TABLE, to_key="qualified_name", to_key_value=tbl_qname,
                 rel_type=rel,
                 properties={"operation": op, "line": line_no + 1, "source_file": file_path},
             ))
@@ -372,15 +379,17 @@ class OraclePlSqlExtractor(BaseExtractor):
             caller_qname = _resolve(spans, call_line) or fallback_qname
             if not caller_qname:
                 continue
+            caller_label = span_labels.get(caller_qname, fallback_label)
             target_full  = f"{pkg_ref}.{proc_ref}"
-            target_qname = f"{S.LABEL_FUNCTION}:{repository}:{target_full}"
+            # Default to PROCEDURE — gets MERGEd with the real node if loaded later
+            target_qname = f"{S.LABEL_PROCEDURE}:{repository}:{target_full}"
             edge_key = (caller_qname, target_qname)
             if edge_key in seen_calls:
                 continue
             seen_calls.add(edge_key)
             result.edges.append(GraphEdge(
-                from_label=S.LABEL_FUNCTION, from_key="qualified_name", from_key_value=caller_qname,
-                to_label=S.LABEL_FUNCTION,   to_key="qualified_name", to_key_value=target_qname,
+                from_label=caller_label,     from_key="qualified_name", from_key_value=caller_qname,
+                to_label=S.LABEL_PROCEDURE,  to_key="qualified_name", to_key_value=target_qname,
                 rel_type=S.REL_CALLS,
                 properties={"call_type": "package_proc", "line": call_line + 1,
                             "source_file": file_path},
@@ -393,10 +402,10 @@ class OraclePlSqlExtractor(BaseExtractor):
             if _skip(fired_on):
                 continue
 
-            # Model the trigger body as a Function node
-            trg_fn_qname = f"{S.LABEL_FUNCTION}:{repository}:{trg_name}"
+            # Model the trigger as a Trigger node
+            trg_fn_qname = f"{S.LABEL_TRIGGER}:{repository}:{trg_name}"
             _add_unique(result, GraphNode(
-                label=S.LABEL_FUNCTION,
+                label=S.LABEL_TRIGGER,
                 key="qualified_name",
                 key_value=trg_fn_qname,
                 properties={
@@ -432,9 +441,9 @@ class OraclePlSqlExtractor(BaseExtractor):
                 },
             ))
 
-            # TRIGGERS edge: trigger function fires ON the table
+            # TRIGGERS edge: trigger fires ON the table
             result.edges.append(GraphEdge(
-                from_label=S.LABEL_FUNCTION, from_key="qualified_name", from_key_value=trg_fn_qname,
+                from_label=S.LABEL_TRIGGER, from_key="qualified_name", from_key_value=trg_fn_qname,
                 to_label=S.LABEL_TABLE,     to_key="qualified_name", to_key_value=tbl_qname,
                 rel_type=S.REL_TRIGGERS,
                 properties={"framework": "Oracle Trigger", "source_file": file_path},

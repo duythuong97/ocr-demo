@@ -101,10 +101,20 @@ class AstCallExtractorBase(BaseExtractor):
         return GraphNode(label=S.LABEL_FUNCTION, key="qualified_name", key_value=qname, properties=props)
 
     def _class_node(self, qname: str, name: str, repository: str, extra: dict | None = None) -> GraphNode:
+        """Create a class node with the legacy LABEL_CLASS. Use _class_node_with_label() for specific labels."""
         props = {"name": name, "repository": repository}
         if extra:
             props.update(extra)
         return GraphNode(label=S.LABEL_CLASS, key="qualified_name", key_value=qname, properties=props)
+
+    def _class_node_with_label(
+        self, label: str, qname: str, name: str, repository: str, extra: dict | None = None
+    ) -> GraphNode:
+        """Create a class node with an explicit label (ApiController, ServiceClass, RepositoryClass, etc.)."""
+        props = {"name": name, "repository": repository}
+        if extra:
+            props.update(extra)
+        return GraphNode(label=label, key="qualified_name", key_value=qname, properties=props)
 
     def _module_node(self, qname: str, name: str, repository: str) -> GraphNode:
         return GraphNode(
@@ -126,16 +136,27 @@ class AstCallExtractorBase(BaseExtractor):
             rel_type=S.REL_IMPORTS,
         )
 
-    def _belongs_to_edge(self, fn_qname: str, cls_qname: str) -> GraphEdge:
+    def _belongs_to_edge(
+        self,
+        fn_qname: str,
+        cls_qname: str,
+        from_label: str | None = None,
+        to_label: str | None = None,
+    ) -> GraphEdge:
         return GraphEdge(
-            from_label=S.LABEL_FUNCTION, from_key="qualified_name", from_key_value=fn_qname,
-            to_label=S.LABEL_CLASS, to_key="qualified_name", to_key_value=cls_qname,
+            from_label=from_label or S.LABEL_FUNCTION, from_key="qualified_name", from_key_value=fn_qname,
+            to_label=to_label or S.LABEL_CLASS, to_key="qualified_name", to_key_value=cls_qname,
             rel_type=S.REL_BELONGS_TO,
         )
 
-    def _instantiates_edge(self, caller_qname: str, class_qname: str) -> GraphEdge:
+    def _instantiates_edge(
+        self,
+        caller_qname: str,
+        class_qname: str,
+        to_label: str | None = None,
+    ) -> GraphEdge:
         return GraphEdge(
             from_label=S.LABEL_FUNCTION, from_key="qualified_name", from_key_value=caller_qname,
-            to_label=S.LABEL_CLASS, to_key="qualified_name", to_key_value=class_qname,
+            to_label=to_label or S.LABEL_CLASS, to_key="qualified_name", to_key_value=class_qname,
             rel_type=S.REL_INSTANTIATES,
         )
