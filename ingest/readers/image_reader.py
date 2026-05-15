@@ -3,14 +3,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import config as cfg
-
-from ingest.readers.base import BaseReader
+from ingest.readers.base import BaseReader, _run_ocr
 
 logger = logging.getLogger(__name__)
-
-from PIL import Image as _Image
-import pytesseract as _pytesseract
 
 
 class ImageReader(BaseReader):
@@ -22,9 +17,9 @@ class ImageReader(BaseReader):
 
     def _ocr(self, path: Path) -> str:
         try:
-            lang = getattr(cfg, "TESSERACT_LANG", "eng")
+            from PIL import Image as _Image  # noqa: PLC0415
             img = _Image.open(path)
-            text = _pytesseract.image_to_string(img, lang=lang).strip()
+            text = _run_ocr(img)
             if not text:
                 raise ValueError(f"No text detected in image '{path.name}'")
             return text

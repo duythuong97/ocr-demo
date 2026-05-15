@@ -5,6 +5,6 @@
     "repository": "ocr-demo",
     "repository_path": "ocr-demo",
     "repository_url_base": "https://github.com/example/ocr-demo",
-    "extensions": ["py", "js", "html", "css", "md", "txt", "json"]
+    "extensions": ["py", "js", "ts", "tsx", "jsx", "java", "cs", "go", "sql", "xml", "yaml", "yml", "md", "html", "json"]
   }
 ]

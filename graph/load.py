@@ -29,7 +29,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 logger = logging.getLogger(__name__)
 
-# Load order: phase name → pass number
+# Execution order
 _PHASE_ORDER = [
     "nodes",
     "edges_internal",
@@ -37,9 +37,6 @@ _PHASE_ORDER = [
     "edges_global",
     "metadata",
 ]
-
-# Statement terminator
-_STMT_END = re.compile(r";\s*$", re.MULTILINE)
 
 
 def main() -> int:
@@ -57,7 +54,6 @@ def main() -> int:
         logger.error("Run directory not found: %s", run_dir)
         return 1
 
-    # Load manifest
     manifest_path = run_dir / "00_run_manifest.json"
     if not manifest_path.exists():
         logger.error("Manifest not found: %s", manifest_path)
@@ -65,7 +61,6 @@ def main() -> int:
     with manifest_path.open("r", encoding="utf-8") as f:
         manifest = json.load(f)
 
-    # Collect .cypher files in load order
     files_by_phase: dict[str, list[Path]] = {phase: [] for phase in _PHASE_ORDER}
     for proj in manifest.get("projects", []):
         if args.repo and proj["repo_key"] != args.repo:

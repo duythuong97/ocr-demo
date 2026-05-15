@@ -1,13 +1,15 @@
-"""IndexingStateStore: SQLite repository for indexing jobs, files, and knowledge data."""
+"""IndexingStateStore: PostgreSQL repository for indexing jobs, files, and knowledge data."""
 from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 import threading
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
+
+import psycopg2
+import psycopg2.extras
+from psycopg2.pool import ThreadedConnectionPool
 
 from ingest.models import IndexJobConfig
 
@@ -18,29 +20,69 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+class _PgConn:
+    """Context manager wrapping a pooled psycopg2 connection.
+
+    Exposes a sqlite3-compatible interface:
+      - execute(sql, params) -> cursor  (? placeholders are auto-converted to %s)
+      - executescript(sql)   -> executes semicolon-separated statements
+    Commits on clean exit, rolls back on exception, and returns the connection
+    to the pool in both cases.
+    """
+
+    __slots__ = ("_pool", "_conn")
+
+    def __init__(self, pool: ThreadedConnectionPool) -> None:
+        self._pool = pool
+        self._conn: Any = None
+
+    def __enter__(self) -> "_PgConn":
+        self._conn = self._pool.getconn()
+        return self
+
+    def __exit__(self, exc_type: Any, *_: Any) -> None:
+        try:
+            if exc_type:
+                self._conn.rollback()
+            else:
+                self._conn.commit()
+        finally:
+            self._pool.putconn(self._conn)
+
+    def execute(self, sql: str, params: tuple = ()) -> Any:
+        cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql.replace("?", "%s"), params)
+        return cur
+
+    def executescript(self, sql: str) -> None:
+        """Execute multiple semicolon-separated SQL statements."""
+        cur = self._conn.cursor()
+        for stmt in sql.split(";"):
+            stmt = stmt.strip()
+            if stmt:
+                cur.execute(stmt)
+
+
 class IndexingStateStore:
-    def __init__(self, db_path: Path):
-        self.db_path = db_path
+    def __init__(self, db_url: str) -> None:
+        self._pool = ThreadedConnectionPool(2, 20, dsn=db_url)
         self._write_lock = threading.Lock()
         self._init_db()
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _connect(self) -> _PgConn:
+        return _PgConn(self._pool)
 
     def _init_db(self) -> None:
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
-            conn.executescript("""
-                PRAGMA journal_mode=WAL;
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS index_jobs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id BIGSERIAL PRIMARY KEY,
                     root_path TEXT NOT NULL,
                     repository TEXT DEFAULT '',
                     repository_path TEXT DEFAULT '',
                     repository_url_base TEXT DEFAULT '',
                     extensions TEXT DEFAULT '[]',
+                    index_mode TEXT DEFAULT 'both',
                     status TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     started_at TEXT,
@@ -55,26 +97,28 @@ class IndexingStateStore:
                     current_file TEXT,
                     last_error TEXT,
                     cancel_requested INTEGER DEFAULT 0
-                );
-
+                )
+            """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS job_files (
-                    job_id INTEGER NOT NULL,
+                    job_id BIGINT NOT NULL,
                     file_path TEXT NOT NULL,
                     rel_path TEXT NOT NULL,
-                    mtime REAL NOT NULL,
-                    size INTEGER NOT NULL,
+                    mtime DOUBLE PRECISION NOT NULL,
+                    size BIGINT NOT NULL,
                     status TEXT NOT NULL,
                     attempts INTEGER DEFAULT 0,
                     last_error TEXT,
                     updated_at TEXT NOT NULL,
                     PRIMARY KEY (job_id, file_path)
-                );
-
+                )
+            """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS indexed_files (
                     file_path TEXT PRIMARY KEY,
                     rel_path TEXT NOT NULL,
-                    mtime REAL NOT NULL,
-                    size INTEGER NOT NULL,
+                    mtime DOUBLE PRECISION NOT NULL,
+                    size BIGINT NOT NULL,
                     content_hash TEXT NOT NULL,
                     solr_id TEXT NOT NULL,
                     repository TEXT DEFAULT '',
@@ -82,32 +126,38 @@ class IndexingStateStore:
                     last_indexed_at TEXT NOT NULL,
                     last_status TEXT NOT NULL,
                     last_error TEXT
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_jobs_status ON index_jobs(status);
-                CREATE INDEX IF NOT EXISTS idx_job_files_status ON job_files(job_id, status);
-
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_status ON index_jobs(status)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_job_files_status ON job_files(job_id, status)"
+            )
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS knowledge_nodes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id BIGSERIAL PRIMARY KEY,
                     label TEXT NOT NULL,
                     name TEXT NOT NULL,
                     repository TEXT NOT NULL DEFAULT 'manual',
                     properties_json TEXT NOT NULL DEFAULT '{}',
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
-                );
-
+                )
+            """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS knowledge_edges (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id BIGSERIAL PRIMARY KEY,
                     from_qname TEXT NOT NULL,
                     to_qname TEXT NOT NULL,
                     rel_type TEXT NOT NULL,
                     properties_json TEXT NOT NULL DEFAULT '{}',
                     created_at TEXT NOT NULL
-                );
-
+                )
+            """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS knowledge_texts (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id BIGSERIAL PRIMARY KEY,
                     title TEXT NOT NULL,
                     content TEXT NOT NULL,
                     tags TEXT NOT NULL DEFAULT '',
@@ -115,13 +165,14 @@ class IndexingStateStore:
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     indexed_at TEXT
-                );
-                """)
-            # Migrations: add columns added after initial schema
-            existing = {
-                row[1]
-                for row in conn.execute("PRAGMA table_info(index_jobs)").fetchall()
-            }
+                )
+            """)
+            # Migrations: add columns that may be missing in existing deployments
+            rows = conn.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name='index_jobs' AND table_schema='public'"
+            ).fetchall()
+            existing = {row["column_name"] for row in rows}
             if "repository_url_base" not in existing:
                 conn.execute(
                     "ALTER TABLE index_jobs ADD COLUMN repository_url_base TEXT DEFAULT ''"
@@ -144,7 +195,7 @@ class IndexingStateStore:
                 UPDATE index_jobs
                 SET status='queued', started_at=NULL
                 WHERE status='scanning' AND cancel_requested = 0
-                """,
+                """
             )
             conn.execute(
                 """
@@ -157,19 +208,20 @@ class IndexingStateStore:
 
     # ── Job queries ────────────────────────────────────────────────────────────
 
-    def get_active_job(self) -> sqlite3.Row | None:
+    def get_active_job(self) -> dict | None:
         with self._connect() as conn:
-            return conn.execute("""
+            row = conn.execute("""
                 SELECT * FROM index_jobs
                 WHERE status IN ('queued', 'scanning', 'running')
                 ORDER BY id DESC LIMIT 1
                 """).fetchone()
+            return dict(row) if row else None
 
     def get_pending_job_for_source(
         self, root_path: str, repository_path: str
-    ) -> sqlite3.Row | None:
+    ) -> dict | None:
         with self._connect() as conn:
-            return conn.execute(
+            row = conn.execute(
                 """
                 SELECT * FROM index_jobs
                 WHERE status IN ('queued', 'scanning', 'running')
@@ -178,6 +230,7 @@ class IndexingStateStore:
                 """,
                 (root_path, repository_path),
             ).fetchone()
+            return dict(row) if row else None
 
     def create_job(self, config: IndexJobConfig) -> int:
         with self._write_lock, self._connect() as conn:
@@ -188,6 +241,7 @@ class IndexingStateStore:
                     extensions, index_mode, status, created_at
                 )
                 VALUES (?, ?, ?, ?, ?, ?, 'queued', ?)
+                RETURNING id
                 """,
                 (
                     config.root_path,
@@ -199,13 +253,14 @@ class IndexingStateStore:
                     utc_now(),
                 ),
             )
-            return int(cur.lastrowid)
+            return int(cur.fetchone()["id"])
 
-    def get_job(self, job_id: int) -> sqlite3.Row | None:
+    def get_job(self, job_id: int) -> dict | None:
         with self._connect() as conn:
-            return conn.execute(
+            row = conn.execute(
                 "SELECT * FROM index_jobs WHERE id=?", (job_id,)
             ).fetchone()
+            return dict(row) if row else None
 
     def set_job_status(self, job_id: int, status: str, error: str = "") -> None:
         now = utc_now()
@@ -280,9 +335,9 @@ class IndexingStateStore:
                 (job_id, file_path, rel_path, mtime, size, status, utc_now()),
             )
 
-    def get_next_pending_file(self, job_id: int) -> sqlite3.Row | None:
+    def get_next_pending_file(self, job_id: int) -> dict | None:
         with self._connect() as conn:
-            return conn.execute(
+            row = conn.execute(
                 """
                 SELECT * FROM job_files
                 WHERE job_id=? AND status='pending'
@@ -290,6 +345,7 @@ class IndexingStateStore:
                 """,
                 (job_id,),
             ).fetchone()
+            return dict(row) if row else None
 
     def mark_processing(self, job_id: int, file_path: str) -> None:
         with self._write_lock, self._connect() as conn:
@@ -372,11 +428,12 @@ class IndexingStateStore:
 
     # ── Indexed file registry ──────────────────────────────────────────────────
 
-    def get_indexed_file(self, file_path: str) -> sqlite3.Row | None:
+    def get_indexed_file(self, file_path: str) -> dict | None:
         with self._connect() as conn:
-            return conn.execute(
+            row = conn.execute(
                 "SELECT * FROM indexed_files WHERE file_path=?", (file_path,)
             ).fetchone()
+            return dict(row) if row else None
 
     def save_indexed_file(
         self,
@@ -419,12 +476,13 @@ class IndexingStateStore:
 
     def get_indexed_files_for_repo(
         self, repository: str, repository_path: str
-    ) -> list[sqlite3.Row]:
+    ) -> list[dict]:
         with self._connect() as conn:
-            return conn.execute(
+            rows = conn.execute(
                 "SELECT * FROM indexed_files WHERE repository=? AND repository_path=?",
                 (repository, repository_path),
             ).fetchall()
+            return [dict(r) for r in rows]
 
     def delete_indexed_file(self, file_path: str) -> None:
         with self._write_lock, self._connect() as conn:
@@ -444,12 +502,12 @@ class IndexingStateStore:
     def clear_all_data(self) -> None:
         """Wipe all indexing history: jobs, job_files, indexed_files."""
         with self._write_lock, self._connect() as conn:
-            conn.executescript(
-                "DELETE FROM job_files; DELETE FROM index_jobs; DELETE FROM indexed_files;"
-            )
+            conn.execute("DELETE FROM job_files")
+            conn.execute("DELETE FROM index_jobs")
+            conn.execute("DELETE FROM indexed_files")
 
     # ── Knowledge CRUD ─────────────────────────────────────────────────────────
-    # These methods provide SQLite access for KnowledgeService.
+    # These methods provide PostgreSQL access for KnowledgeService.
     # The knowledge_* tables are owned by KnowledgeService — do not add
     # business logic here.
 
@@ -465,16 +523,16 @@ class IndexingStateStore:
         sql += " ORDER BY updated_at DESC LIMIT ?"
         params.append(limit)
         with self._connect() as conn:
-            return [dict(r) for r in conn.execute(sql, params).fetchall()]
+            return [dict(r) for r in conn.execute(sql, tuple(params)).fetchall()]
 
     def create_knowledge_node(self, label: str, name: str, repository: str, properties: dict) -> int:
         now = utc_now()
         with self._write_lock, self._connect() as conn:
             cur = conn.execute(
-                "INSERT INTO knowledge_nodes (label, name, repository, properties_json, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                "INSERT INTO knowledge_nodes (label, name, repository, properties_json, created_at, updated_at) VALUES (?,?,?,?,?,?) RETURNING id",
                 (label, name, repository, json.dumps(properties), now, now),
             )
-            return int(cur.lastrowid)
+            return int(cur.fetchone()["id"])
 
     def update_knowledge_node(self, node_id: int, name: str, repository: str, properties: dict) -> bool:
         with self._write_lock, self._connect() as conn:
@@ -500,10 +558,10 @@ class IndexingStateStore:
             if row:
                 return int(row["id"])
             cur = conn.execute(
-                "INSERT INTO knowledge_nodes (label, name, repository, properties_json, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                "INSERT INTO knowledge_nodes (label, name, repository, properties_json, created_at, updated_at) VALUES (?,?,?,?,?,?) RETURNING id",
                 (label, name, repository, props_json, now, now),
             )
-            return int(cur.lastrowid)
+            return int(cur.fetchone()["id"])
 
     def list_knowledge_edges(self, rel_type: str = "", q: str = "", limit: int = 200) -> list[dict]:
         sql = "SELECT * FROM knowledge_edges WHERE 1=1"
@@ -517,15 +575,15 @@ class IndexingStateStore:
         sql += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
         with self._connect() as conn:
-            return [dict(r) for r in conn.execute(sql, params).fetchall()]
+            return [dict(r) for r in conn.execute(sql, tuple(params)).fetchall()]
 
     def create_knowledge_edge(self, from_qname: str, to_qname: str, rel_type: str, properties: dict) -> int:
         with self._write_lock, self._connect() as conn:
             cur = conn.execute(
-                "INSERT INTO knowledge_edges (from_qname, to_qname, rel_type, properties_json, created_at) VALUES (?,?,?,?,?)",
+                "INSERT INTO knowledge_edges (from_qname, to_qname, rel_type, properties_json, created_at) VALUES (?,?,?,?,?) RETURNING id",
                 (from_qname, to_qname, rel_type, json.dumps(properties), utc_now()),
             )
-            return int(cur.lastrowid)
+            return int(cur.fetchone()["id"])
 
     def delete_knowledge_edge(self, edge_id: int) -> bool:
         with self._write_lock, self._connect() as conn:
@@ -547,7 +605,7 @@ class IndexingStateStore:
         sql += " ORDER BY updated_at DESC LIMIT ?"
         params.append(limit)
         with self._connect() as conn:
-            return [dict(r) for r in conn.execute(sql, params).fetchall()]
+            return [dict(r) for r in conn.execute(sql, tuple(params)).fetchall()]
 
     def get_knowledge_text(self, text_id: int) -> dict | None:
         with self._connect() as conn:
@@ -558,10 +616,10 @@ class IndexingStateStore:
         now = utc_now()
         with self._write_lock, self._connect() as conn:
             cur = conn.execute(
-                "INSERT INTO knowledge_texts (title, content, tags, repository, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                "INSERT INTO knowledge_texts (title, content, tags, repository, created_at, updated_at) VALUES (?,?,?,?,?,?) RETURNING id",
                 (title, content, tags, repository, now, now),
             )
-            return int(cur.lastrowid)
+            return int(cur.fetchone()["id"])
 
     def update_knowledge_text(self, text_id: int, title: str, content: str, tags: str, repository: str) -> bool:
         with self._write_lock, self._connect() as conn:

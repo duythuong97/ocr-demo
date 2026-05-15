@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from ingest.readers.base import BaseReader
+from ingest.readers.base import BaseReader, _ocr_embedded_images
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,10 @@ class PowerPointReader(BaseReader):
                 # Extract slide title from title/subtitle placeholder shapes first
                 slide_title = ""
                 for shape in slide.shapes:
-                    if shape.has_text_frame and shape.shape_type != MSO_SHAPE_TYPE.GROUP:
+                    if (
+                        shape.has_text_frame
+                        and shape.shape_type != MSO_SHAPE_TYPE.GROUP
+                    ):
                         ph = getattr(shape, "placeholder_format", None)
                         if ph is not None and ph.idx in (0, 1):  # 0=title, 1=subtitle
                             t = shape.text_frame.text.strip()
@@ -87,6 +90,12 @@ class PowerPointReader(BaseReader):
                     notes_text = slide.notes_slide.notes_text_frame.text.strip()
                     if notes_text:
                         parts.append(f"[Notes] {notes_text}")
+
+            # Embedded images (diagrams, screenshots, scanned content)
+            img_parts = _ocr_embedded_images(path, "ppt/media/")
+            if img_parts:
+                parts.append("### Embedded Images")
+                parts.extend(img_parts)
 
             return "\n".join(parts)
         except ValueError:
@@ -136,6 +145,19 @@ class PowerPointReader(BaseReader):
             except Exception as exc:
                 logger.debug("Could not read chart from shape: %s", exc)
 
+            # SmartArt, diagrams, and other graphic frames not exposed by python-pptx
+            # (has_text_frame=False, has_table=False, has_chart=False)
+            if not shape.has_text_frame and not shape.has_table:
+                try:
+                    A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+                    seen: set[str] = set()
+                    for t_elem in shape.element.iter(f"{{{A_NS}}}t"):
+                        txt = (t_elem.text or "").strip()
+                        if txt and txt not in seen:
+                            seen.add(txt)
+                            parts.append(txt)
+                except Exception as exc:
+                    logger.debug("Could not read graphic frame text: %s", exc)
 
     def _read_ppt_legacy(self, path: Path) -> str:
         """Best-effort extraction for legacy .ppt binary format.
@@ -150,30 +172,50 @@ class PowerPointReader(BaseReader):
             with tempfile.TemporaryDirectory() as tmpdir:
                 result = subprocess.run(
                     [
-                        "libreoffice", "--headless", "--convert-to", "pptx",
-                        "--outdir", tmpdir, str(path),
+                        "libreoffice",
+                        "--headless",
+                        "--convert-to",
+                        "pptx",
+                        "--outdir",
+                        tmpdir,
+                        str(path),
                     ],
-                    capture_output=True, timeout=60,
+                    capture_output=True,
+                    timeout=60,
                 )
                 if result.returncode == 0:
                     converted = list(Path(tmpdir).glob("*.pptx"))
                     if converted:
                         return self._read_pptx(converted[0])
         except FileNotFoundError:
-            logger.debug("LibreOffice not found — falling back to binary extraction for %s", path.name)
+            logger.debug(
+                "LibreOffice not found — falling back to binary extraction for %s",
+                path.name,
+            )
         except subprocess.TimeoutExpired:
-            logger.warning("LibreOffice conversion timed out for %s — falling back to binary extraction", path.name)
+            logger.warning(
+                "LibreOffice conversion timed out for %s — falling back to binary extraction",
+                path.name,
+            )
         except Exception as exc:
-            logger.warning("LibreOffice conversion failed for %s: %s — falling back to binary extraction", path.name, exc)
+            logger.warning(
+                "LibreOffice conversion failed for %s: %s — falling back to binary extraction",
+                path.name,
+                exc,
+            )
 
         # Raw binary extraction fallback
         try:
             raw = path.read_bytes()
             utf16_strings = re.findall(rb"(?:[\x20-\x7e]\x00){4,}", raw)
-            decoded = [s.decode("utf-16-le", errors="ignore").strip() for s in utf16_strings]
+            decoded = [
+                s.decode("utf-16-le", errors="ignore").strip() for s in utf16_strings
+            ]
 
             ascii_strings = re.findall(rb"[\x20-\x7e]{4,}", raw)
-            decoded += [s.decode("ascii", errors="ignore").strip() for s in ascii_strings]
+            decoded += [
+                s.decode("ascii", errors="ignore").strip() for s in ascii_strings
+            ]
 
             seen: set[str] = set()
             result_lines: list[str] = []

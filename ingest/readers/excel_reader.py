@@ -4,7 +4,7 @@ import csv
 import logging
 from pathlib import Path
 
-from ingest.readers.base import BaseReader
+from ingest.readers.base import BaseReader, _ocr_embedded_images
 from ingest.readers.encoding_utils import decode_bytes_auto
 
 logger = logging.getLogger(__name__)
@@ -79,6 +79,10 @@ class ExcelReader(BaseReader):
             wb = openpyxl.load_workbook(str(path), data_only=True)
             text = convert_workbook(wb, row_sentences=row_sentences)
             wb.close()
+            # Embedded images (charts, diagrams pasted as pictures)
+            img_parts = _ocr_embedded_images(path, "xl/media/")
+            if img_parts:
+                text += "\n### Embedded Images\n" + "\n".join(img_parts)
             return text
         except ValueError:
             raise

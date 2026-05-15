@@ -1,13 +1,13 @@
-"""ChatStore: persist chat history (messages + agent events) in SQLite.
+"""ChatStore: persist chat history (messages + agent events) in PostgreSQL.
 
 Each browser session is identified by a UUID generated client-side and stored
 in localStorage. The UUID is sent as the ``X-Session-ID`` header on every
 request.
 
-Schema (two tables added to the shared indexing.db):
+Schema:
 
   chat_sessions: id TEXT (UUID PK), created_at TEXT, last_active_at TEXT
-  chat_messages: id INTEGER PK, session_id TEXT, seq INTEGER, role TEXT,
+  chat_messages: id BIGSERIAL PK, session_id TEXT, seq INTEGER, role TEXT,
                  content TEXT, events TEXT (JSON), sources TEXT (JSON),
                  graph TEXT (JSON), created_at TEXT
 """
@@ -15,38 +15,42 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 import threading
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
+
+from psycopg2.pool import ThreadedConnectionPool
+
+from ingest.store import _PgConn
 
 logger = logging.getLogger(__name__)
 
-_DDL = """
-PRAGMA journal_mode=WAL;
-
-CREATE TABLE IF NOT EXISTS chat_sessions (
-    id             TEXT PRIMARY KEY,
-    created_at     TEXT NOT NULL,
-    last_active_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS chat_messages (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT    NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
-    seq        INTEGER NOT NULL,
-    role       TEXT    NOT NULL,
-    content    TEXT    NOT NULL DEFAULT '',
-    events     TEXT    NOT NULL DEFAULT '[]',
-    sources    TEXT    NOT NULL DEFAULT '[]',
-    graph      TEXT    NOT NULL DEFAULT '{}',
-    created_at TEXT    NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_chat_messages_session
-    ON chat_messages (session_id, seq);
-"""
+_DDL = [
+    """
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+        id             TEXT PRIMARY KEY,
+        created_at     TEXT NOT NULL,
+        last_active_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS chat_messages (
+        id         BIGSERIAL PRIMARY KEY,
+        session_id TEXT    NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+        seq        INTEGER NOT NULL,
+        role       TEXT    NOT NULL,
+        content    TEXT    NOT NULL DEFAULT '',
+        events     TEXT    NOT NULL DEFAULT '[]',
+        sources    TEXT    NOT NULL DEFAULT '[]',
+        graph      TEXT    NOT NULL DEFAULT '{}',
+        created_at TEXT    NOT NULL
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_session
+        ON chat_messages (session_id, seq)
+    """,
+]
 
 
 def _utc() -> str:
@@ -54,27 +58,22 @@ def _utc() -> str:
 
 
 class ChatStore:
-    """Thread-safe SQLite-backed chat history store."""
+    """Thread-safe PostgreSQL-backed chat history store."""
 
-    def __init__(self, db_path: Path) -> None:
-        self.db_path = db_path
+    def __init__(self, db_url: str) -> None:
+        self._pool = ThreadedConnectionPool(1, 10, dsn=db_url)
         self._write_lock = threading.Lock()
         self._init_db()
 
-    # ── Internal ──────────────────────────────────────────────────────────────
-
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
-        return conn
+    def _connect(self) -> _PgConn:
+        return _PgConn(self._pool)
 
     def _init_db(self) -> None:
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
-            conn.executescript(_DDL)
+            for stmt in _DDL:
+                conn.execute(stmt)
 
-    def _ensure_session(self, conn: sqlite3.Connection, session_id: str) -> None:
+    def _ensure_session(self, conn: _PgConn, session_id: str) -> None:
         """Create session row if it does not exist."""
         now = _utc()
         conn.execute(
@@ -127,7 +126,6 @@ class ChatStore:
         with self._write_lock:
             with self._connect() as conn:
                 self._ensure_session(conn, session_id)
-                # Next seq number
                 row = conn.execute(
                     "SELECT COALESCE(MAX(seq), -1) + 1 AS next_seq FROM chat_messages WHERE session_id = ?",
                     (session_id,),
@@ -138,6 +136,7 @@ class ChatStore:
                     INSERT INTO chat_messages
                         (session_id, seq, role, content, events, sources, graph, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    RETURNING id
                     """,
                     (
                         session_id,
@@ -150,7 +149,7 @@ class ChatStore:
                         _utc(),
                     ),
                 )
-                return cur.lastrowid  # type: ignore[return-value]
+                return int(cur.fetchone()["id"])
 
     def list_sessions(self, limit: int = 50) -> list[dict]:
         """Return most-recently-active sessions with a title from first user message."""

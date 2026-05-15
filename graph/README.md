@@ -59,6 +59,8 @@ python graph/load.py \
 # Validate
 python graph/validate.py \
   --run RUN_20260513_150021
+
+docker compose run --rm graph-init
 ```
 
 ---

@@ -17,12 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-# Install PyTorch CPU-only first to avoid downloading 1.5GB of CUDA libraries
+# CPU-only wheel from the PyTorch index; avoids pulling the large CUDA build
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir --retries 10 --timeout 300 \
     --index-url https://download.pytorch.org/whl/cpu \
     torch
-# Install remaining heavy ML packages (torch already present, skips CUDA pull)
+# Other heavy ML packages — separate layer for better cache reuse
 RUN pip install --no-cache-dir --retries 10 --timeout 300 \
     sentence-transformers \
     tree-sitter-languages \
@@ -36,31 +36,32 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Runtime system deps:
-#   tesseract      — OCR for image/scanned-PDF support
 #   poppler-utils  — pdf2image needs pdftoppm
 #   libmagic       — file-type detection (markitdown)
+#   libgl1/libglib2/libgomp — OpenCV + PaddleOCR runtime deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        tesseract-ocr \
-        tesseract-ocr-jpn \
-        tesseract-ocr-eng \
         poppler-utils \
         libmagic1 \
+        libgl1 \
+        libglib2.0-0 \
+        libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy all installed Python packages from builder
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
+# Copy entrypoint first (explicit — docker/ is largely excluded by .dockerignore)
+COPY docker/entrypoint.sh /entrypoint.sh
+# Strip Windows CRLF line endings that Git may have introduced on a Windows host.
+RUN sed -i 's/\r$//' /entrypoint.sh
+
 # Copy application source
 COPY . .
 
-# Non-root user for security
-RUN useradd -m -u 1000 appuser \
- && chown -R appuser:appuser /app
-USER appuser
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 5100
 
-# gunicorn is not in requirements (app uses socketio which needs eventlet/gevent
-# or the built-in werkzeug async mode). Use the app's own runner.
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["python", "app.py"]

@@ -213,6 +213,8 @@ def _exec_search_documents(query: str, top_k: int = 5) -> tuple[dict, list[dict]
             {
                 "file": d.get("title") or d.get("rel_path") or d.get("file_path", ""),
                 "file_path": d.get("file_path", ""),
+                "repository": d.get("repository", ""),
+                "file_type": d.get("file_type", ""),
                 "text": str(d.get("content") or d.get("text", ""))[:3000],
                 "score": round(
                     float(d.get("semantic_score") or d.get("score") or 0), 4

@@ -517,6 +517,13 @@ def _sheet_to_text(
         lines.append("### Cell Notes")
         lines.extend(comment_texts)
 
+    # Shapes / text boxes / diagram labels from the drawing layer
+    drawing_texts = _collect_drawing_text(ws)
+    if drawing_texts:
+        lines.append("")
+        lines.append("### Shapes & Diagrams")
+        lines.extend(drawing_texts)
+
     return "\n".join(lines).strip()
 
 
@@ -534,6 +541,37 @@ def _collect_comments(ws: Worksheet) -> List[str]:
                         results.append(f"{coord}: {text}")
     except Exception as exc:
         _logger.warning("Could not read cell comments from worksheet: %s", exc)
+    return results
+
+
+_DRAWINGML_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+
+
+def _collect_drawing_text(ws: Worksheet) -> List[str]:
+    """Extract text from shapes, text boxes, and diagrams in the worksheet drawing layer.
+
+    Excel shapes (rectangles, callouts, arrows with labels, SmartArt-style diagrams,
+    freeform text boxes) are stored in the DrawingML XML associated with each sheet.
+    openpyxl exposes the raw XML via ``ws._drawing._drawing`` so we iterate all
+    ``<a:t>`` text-run elements to capture every label regardless of shape type.
+    """
+    results: List[str] = []
+    try:
+        drawing = getattr(ws, "_drawing", None)
+        if not drawing:
+            return results
+        # _drawing attribute is the SpreadsheetDrawing lxml element root
+        raw = getattr(drawing, "_drawing", None)
+        if raw is None:
+            return results
+        seen: set = set()
+        for t_elem in raw.iter(f"{{{_DRAWINGML_NS}}}t"):
+            txt = (t_elem.text or "").strip()
+            if txt and txt not in seen:
+                seen.add(txt)
+                results.append(txt)
+    except Exception as exc:
+        _logger.warning("Could not read drawing shapes from worksheet: %s", exc)
     return results
 
 

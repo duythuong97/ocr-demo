@@ -45,7 +45,6 @@ def main() -> int:
     output_dir = Path(args.output)
     rules_path = args.rules
 
-    # Load config
     logger.info("Loading config: %s", config_path)
     try:
         sources = config_loader.load(config_path)
@@ -53,7 +52,6 @@ def main() -> int:
         logger.error("Config error: %s", exc)
         return 1
 
-    # Filter projects
     projects = config_loader.filter_projects(
         sources,
         repo_key=args.repo or None,
@@ -69,7 +67,6 @@ def main() -> int:
         len({p.repo_key for p in projects}),
     )
 
-    # Setup manifest
     output_dir.mkdir(parents=True, exist_ok=True)
     if args.resume:
         run_dir = output_dir / args.resume
@@ -85,7 +82,6 @@ def main() -> int:
     if args.dry_run:
         logger.info("[DRY RUN] No files will be written.")
 
-    # Run pipeline
     start = time.monotonic()
     total_nodes = total_edges = 0
 

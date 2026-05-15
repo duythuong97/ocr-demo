@@ -1,0 +1,42 @@
+# Enforce LF line endings for files that must not have CRLF.
+# Without this, Git on Windows with autocrlf=true converts shell scripts
+# to CRLF, which breaks the shebang inside Docker containers
+# ("bash\r: command not found").
+
+* text=auto
+
+# Shell scripts must always be LF
+*.sh        text eol=lf
+
+# Docker / Compose files
+Dockerfile* text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# Python source
+*.py        text eol=lf
+
+# Config / data text files
+*.json      text eol=lf
+*.toml      text eol=lf
+*.cfg       text eol=lf
+*.ini       text eol=lf
+*.md        text eol=lf
+*.txt       text eol=lf
+*.env*      text eol=lf
+
+# Cypher query files
+*.cypher    text eol=lf
+
+# Binary — never touch line endings
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.bmp       binary
+*.tiff      binary
+*.pdf       binary
+*.xlsx      binary
+*.docx      binary
+*.pptx      binary
+*.zip       binary

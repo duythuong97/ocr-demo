@@ -7,7 +7,7 @@ applyTo: "**/*.py"
 ## Overview
 
 This is a Flask app with 4 domain features: **search**, **ingest**, **retrieval**, **knowledge**.
-External systems: Solr (fulltext), Qdrant (vectors), SQLite (state), Neo4j (graph, optional).
+External systems: Solr (fulltext), Qdrant (vectors), PostgreSQL (state), Neo4j (graph, optional).
 
 ---
 
@@ -28,7 +28,7 @@ ocr-demo/
 ├── ingest/                 ← Ingest feature — pipeline design
 │   ├── __init__.py
 │   ├── models.py           IndexJobConfig dataclass
-│   ├── store.py            IndexingStateStore — SQLite repo (jobs, files, state)
+│   ├── store.py            IndexingStateStore — PostgreSQL repo (jobs, files, state)
 │   ├── worker.py           IndexingWorker — background thread, drives the pipeline
 │   ├── source_manager.py   Load/save index source configs from JSON
 │   ├── run_all.py          Run-all: VCS update + queue all sources
@@ -68,7 +68,7 @@ ocr-demo/
     ├── retrieval_routes.py /api/retrieval/* + /api/chat/* endpoints
     ├── search_routes.py    /api/search endpoint
     ├── agent_routes.py     /api/agent/* endpoints
-    └── chat_store.py       SQLite chat history store
+    └── chat_store.py       PostgreSQL chat history store
 ```
 
 ---
@@ -159,7 +159,7 @@ Swapping the embedder in future = change **one line** in `web/__init__.py`, noth
 ### `ingest/` — Ingest pipeline
 - **Pipeline design**: file processing is a sequence of steps.
   Worker calls: `reader → chunker → solr_step → qdrant_step`.
-- `store.py` (`IndexingStateStore`) is the SQLite repository. It handles:
+- `store.py` (`IndexingStateStore`) is the PostgreSQL repository. It handles:
   `index_jobs`, `job_files`, `indexed_files` tables only.
   Knowledge tables (`knowledge_nodes`, `knowledge_edges`, `knowledge_texts`) are NOT here.
 - `worker.py` (`IndexingWorker`) drives the loop; it must NOT contain parsing or embedding logic.
@@ -167,8 +167,8 @@ Swapping the embedder in future = change **one line** in `web/__init__.py`, noth
 
 ### `knowledge/` — Knowledge feature
 - `knowledge/service.py` (`KnowledgeService`) is the only class allowed to read/write knowledge tables.
-- Knowledge SQLite tables are managed by `KnowledgeService`, NOT by `IndexingStateStore`.
-- Knowledge feature depends on `ingest/store.py` for the SQLite connection but nothing else from `ingest/`.
+- Knowledge PostgreSQL tables are managed by `KnowledgeService`, NOT by `IndexingStateStore`.
+- Knowledge feature depends on `ingest/store.py` for the PostgreSQL connection but nothing else from `ingest/`.
 
 ### `search/` — Search feature
 - Fulltext search logic stays in `search/fulltext.py`.

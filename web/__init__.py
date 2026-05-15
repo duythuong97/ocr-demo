@@ -125,17 +125,24 @@ def create_app() -> tuple[Flask, SocketIO]:
     services.solr = pysolr.Solr(
         cfg.SOLR_URL, timeout=cfg.SOLR_TIMEOUT, always_commit=False
     )
-    services.indexing_store = IndexingStateStore(_project_root / "data" / "indexing.db")
+    services.indexing_store = IndexingStateStore(cfg.DB_URL)
 
     # Chat history store (same SQLite DB, separate tables)
     from web.chat_store import ChatStore
 
-    services.chat_store = ChatStore(_project_root / "data" / "indexing.db")
+    services.chat_store = ChatStore(cfg.DB_URL)
 
     _embedder = Embedder(
         model_name=cfg.SEMANTIC_MODEL,
         base_url=cfg.EMBEDDER_URL,
+        batch_size=cfg.EMBED_BATCH_SIZE,
+        timeout=cfg.EMBED_TIMEOUT,
     )
+    try:
+        _embedder.embed(["warmup"])
+        logging.getLogger(__name__).info("Embedder warmup OK (%s)", cfg.SEMANTIC_MODEL)
+    except Exception as _exc:
+        logging.getLogger(__name__).warning("Embedder warmup failed (non-fatal): %s", _exc)
     _qdrant_store = QdrantStore(
         cfg.QDRANT_URL,
         collection_name=cfg.QDRANT_COLLECTION,

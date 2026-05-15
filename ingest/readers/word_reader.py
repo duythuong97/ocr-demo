@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from ingest.readers.base import BaseReader
+from ingest.readers.base import BaseReader, _ocr_embedded_images
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,36 @@ class WordReader(BaseReader):
         "Subtitle",
     }
 
+    def _extract_floating_shapes(self, doc) -> list[str]:
+        """Extract text from floating text boxes and DrawingML shapes.
+
+        Floating shapes in Word are stored as:
+        - ``<w:txbxContent>`` (VML text boxes / WordArt)
+        - ``<a:t>`` inside ``<wp:anchor>`` DrawingML shapes (Word 2010+)
+        These are NOT walked by the normal body loop.
+        """
+        parts: list[str] = []
+        W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        A = "http://schemas.openxmlformats.org/drawingml/2006/main"
+        seen: set[str] = set()
+
+        # VML / legacy text boxes
+        for txbx in doc.element.body.iter(f"{{{W}}}txbxContent"):
+            for p_elem in txbx.findall(f".//{{{W}}}p"):
+                text = "".join(t.text or "" for t in p_elem.findall(f".//{{{W}}}t")).strip()
+                if text and text not in seen:
+                    seen.add(text)
+                    parts.append(text)
+
+        # DrawingML anchored shapes / SmartArt / diagrams
+        for t_elem in doc.element.body.iter(f"{{{A}}}t"):
+            text = (t_elem.text or "").strip()
+            if text and text not in seen:
+                seen.add(text)
+                parts.append(text)
+
+        return parts
+
     def read_content(self, path: Path) -> str:
         _check_encrypted(path)
         try:
@@ -98,6 +128,15 @@ class WordReader(BaseReader):
                             ).strip()
                             if text:
                                 parts.append(text)
+
+            # Floating text boxes and DrawingML shapes
+            parts.extend(self._extract_floating_shapes(doc))
+
+            # Embedded images (charts screenshots, scanned diagrams, etc.)
+            img_parts = _ocr_embedded_images(path, "word/media/")
+            if img_parts:
+                parts.append("### Embedded Images")
+                parts.extend(img_parts)
 
             return "\n".join(parts)
         except ValueError:
@@ -151,6 +190,15 @@ class WordReader(BaseReader):
                     if header:
                         rows_text.insert(0, " | ".join(header))
                     parts.extend(rows_text)
+
+            # Floating text boxes and DrawingML shapes
+            parts.extend(self._extract_floating_shapes(doc))
+
+            # Embedded images
+            img_parts = _ocr_embedded_images(path, "word/media/")
+            if img_parts:
+                parts.append("### Embedded Images")
+                parts.extend(img_parts)
 
             return "\n".join(parts)
         except ValueError:

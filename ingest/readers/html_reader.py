@@ -107,4 +107,8 @@ class HtmlReader(BaseReader):
         return self._extract(path)
 
     def read_semantic(self, path: Path) -> str:
+        # For Razor/CSHTML files return the raw source so that @Model.Property,
+        # @Html.xxx and other code references are preserved in the vector index.
+        if path.suffix.lower() in (".cshtml", ".razor"):
+            return read_text_auto(path)
         return self._extract(path)

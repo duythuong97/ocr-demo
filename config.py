@@ -37,6 +37,8 @@ QDRANT_COLLECTION            = _require("QDRANT_COLLECTION")
 SEMANTIC_MIN_SCORE           = float(_require("SEMANTIC_MIN_SCORE"))
 SEMANTIC_MAX_TEXT_CHARS      = int(_require("SEMANTIC_MAX_TEXT_CHARS"))
 SEMANTIC_MAX_CHUNKS_PER_FILE = int(_require("SEMANTIC_MAX_CHUNKS_PER_FILE"))
+EMBED_BATCH_SIZE             = int(_require("EMBED_BATCH_SIZE"))
+EMBED_TIMEOUT                = int(_require("EMBED_TIMEOUT"))
 SEMANTIC_SKIP_FILE_TYPES     = {
     v.strip().lstrip(".").lower()
     for v in os.getenv("SEMANTIC_SKIP_FILE_TYPES", "").split(",")
@@ -68,8 +70,11 @@ RERANKER_URL            = _require("RERANKER_URL")
 RERANKER_MODEL          = _require("RERANKER_MODEL")
 RERANKER_LISTWISE_BATCH = int(_require("RERANKER_LISTWISE_BATCH"))
 
+# ── Database ─────────────────────────────────────────────────────────────────
+DB_URL = _require("DB_URL")
+
 # ── OCR ───────────────────────────────────────────────────────────────────────
-TESSERACT_LANG   = _require("TESSERACT_LANG")
+OCR_LANG         = _require("OCR_LANG")
 PDF_OCR_FALLBACK = _require("PDF_OCR_FALLBACK").lower() == "true"
 
 # ── Flask ─────────────────────────────────────────────────────────────────────

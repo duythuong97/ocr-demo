@@ -8,24 +8,23 @@ services:
     ports:
       - "${FLASK_PORT:-5100}:5100"
     env_file:
-      - ../.env
+      - path: ../.env
+        required: false # .env is optional — .env.defaults (baked in image) covers all defaults
     environment:
       # Override localhost URLs to use Docker service names
       - SOLR_URL=http://solr:8983/solr/documents
       - QDRANT_URL=http://qdrant:6333
       - NEO4J_URL=bolt://neo4j:7687
       - LLM_BASE_URL=http://ollama:11434/v1
+      - EMBEDDER_URL=http://ollama:11434/v1
+      - RERANKER_URL=http://ollama:11434/v1
+      - DB_URL=postgresql://ocr:ocr@postgres:5432/ocr
     volumes:
-      # Persist indexed source files and Qdrant snapshots across restarts
-      - app_data:/app/data
-      # Mount logs directory for easy access from host
       - ../logs:/app/logs
-      # Mount host repositories so ingest can read source files.
-      # Set REPOS_ROOT in .env to your local repos folder, e.g.:
-      #   REPOS_ROOT=/Users/you/projects
-      # Inside the container files are accessible at /repos/<repo-name>
       - ${REPOS_ROOT:-..}:/repos:ro
     depends_on:
+      postgres:
+        condition: service_healthy
       solr:
         condition: service_healthy
       qdrant:
@@ -47,6 +46,24 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+
+  # ── PostgreSQL (indexing state) ────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ocr_postgres
+    environment:
+      - POSTGRES_USER=ocr
+      - POSTGRES_PASSWORD=ocr
+      - POSTGRES_DB=ocr
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ocr -d ocr"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
 
   # ── Apache Solr ────────────────────────────────────────────────────────────
   solr:
@@ -137,26 +154,33 @@ services:
     #           count: all
     #           capabilities: [gpu]
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c '</dev/tcp/localhost/11434' 2>/dev/null || exit 1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 20s
+      start_period: 30s
     restart: unless-stopped
 
   # ── Pull Ollama model (runs once, then exits) ─────────────────────────────
   ollama-init:
     image: ollama/ollama:latest
     container_name: ollama_init
+    env_file:
+      - path: ../.env.defaults
     environment:
       - OLLAMA_HOST=http://ollama:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b}
     entrypoint: ["sh", "-c"]
     command:
       - |
-        echo "==> Pulling model $OLLAMA_MODEL..."
-        ollama pull $OLLAMA_MODEL
-        echo "==> Model ready."
+        echo "==> Pulling chat model $$LLM_MODEL..."
+        ollama pull $$LLM_MODEL
+        echo "==> Pulling embedding model $$SEMANTIC_MODEL..."
+        ollama pull $$SEMANTIC_MODEL
+        echo "==> Models ready."
     depends_on:
       ollama:
         condition: service_healthy
@@ -169,11 +193,14 @@ services:
       dockerfile: docker/Dockerfile.app
     container_name: graph_init
     env_file:
-      - ../.env
+      - path: ../.env
+        required: false
     environment:
       - NEO4J_URL=bolt://neo4j:7687
+      - REPOS_ROOT=/repos
     volumes:
       - ${REPOS_ROOT:-..}:/repos:ro
+      - ../graph/exports:/app/graph/exports
     depends_on:
       neo4j:
         condition: service_healthy
@@ -183,21 +210,21 @@ services:
       - |
         set -e
         echo '==> Exporting graph to .cypher files...'
-        RUN_OUT=$(python graph/export.py --config graph/sources.yaml --output graph/exports/)
-        echo "$RUN_OUT"
-        RUN_ID=$(echo "$RUN_OUT" | grep -oP 'RUN_[0-9]{8}_[0-9]{6}' | tail -1)
-        if [ -z "$RUN_ID" ]; then
+        RUN_OUT=$$(python graph/export.py --config graph/sources.yaml --output graph/exports/)
+        echo "$$RUN_OUT"
+        RUN_ID=$$(echo "$$RUN_OUT" | grep -oP 'RUN_[0-9]{8}_[0-9]{6}' | tail -1)
+        if [ -z "$$RUN_ID" ]; then
           echo "ERROR: Could not determine Run ID from export output" >&2
           exit 1
         fi
-        echo "==> Loading run $RUN_ID into Neo4j..."
-        python graph/load.py --run "$RUN_ID"
+        echo "==> Loading run $$RUN_ID into Neo4j..."
+        python graph/load.py --run "$$RUN_ID"
         echo '==> Validating...'
-        python graph/validate.py --run "$RUN_ID"
+        python graph/validate.py --run "$$RUN_ID"
         echo '==> Graph pipeline complete.'
 
 volumes:
-  app_data:
+  pg_data:
   qdrant_data:
   neo4j_data:
   ollama_models:

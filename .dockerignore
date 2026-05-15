@@ -48,3 +48,10 @@ data/qdrant/
 
 # Docker files themselves (no need to copy into the image)
 docker/
+# Re-include the Solr configset — needed by Dockerfile.solr COPY instruction
+!docker/solr/
+!docker/solr/configset/
+!docker/solr/configset/conf/
+!docker/solr/configset/conf/**
+# Re-include entrypoint script
+!docker/entrypoint.sh

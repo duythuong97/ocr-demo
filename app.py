@@ -4,7 +4,7 @@ Flask Solr Search Application — entry point.
 All application logic lives in:
   web/          Flask app factory, blueprints, Jinja2 filters
   search/       Full-text, semantic and hybrid search logic
-  chat/         RAG streaming
+  retrieval/     RAG streaming
   indexing/     Indexing worker, source management, run-all
   services.py   Module-level service singletons
 """

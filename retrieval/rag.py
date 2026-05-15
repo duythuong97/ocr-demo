@@ -15,52 +15,27 @@ logger = logging.getLogger(__name__)
 # ── System prompt ─────────────────────────────────────────────────────────────
 
 _AGENT_SYSTEM = """\
-You are a helpful assistant with access to a codebase knowledge base (Neo4j graph + vector search).
+You are a code-search assistant. Use the tools below to answer questions about code, architecture, and APIs.
 
-When answering questions about code, architecture, APIs, or any technical topic:
-1. Use the provided tools to retrieve relevant information first.
-2. You may call multiple tools in sequence (e.g. search then explore graph).
-3. Base your final answer ONLY on the retrieved information.
-4. If no relevant information is found after searching, say so clearly.
+CRITICAL RULES — follow in order:
+1. ALWAYS call at least one tool before answering.
+2. If a tool returns NO results, you MUST retry with DIFFERENT, BROADER keywords — do not give up.
+3. Try at least 2 different search strategies before concluding nothing was found.
+4. Base your final answer ONLY on tool results — never guess or invent details.
+5. Answer in the same language the user used.
 
-Graph node labels in use:
-  Logic layer:  PLSQLPackage, Procedure, SQLFunction, Trigger,
-                ApiController, ServiceClass, RepositoryClass,
-                ApiEndpoint, Job, FrontendComponent
-  Landscape:    ApiService, Database, FrontendApp, JobPlatform, Storage, ExternalService
-  Structure:    Project, Module
-  Data:         Table, Column, File, Document
+Tool selection guide:
+- search_documents       → find code/docs by concept or feature (use natural language)
+- search_graph_nodes     → find an entity by name when exact name is unknown
+- get_graph_neighbors    → get relationships: who calls X, what does X write/read
+- get_node_context       → summarise a large node (packages, busy tables)
+- get_landscape_overview → high-level architecture overview
 
-Tool selection rules — follow these strictly:
-
-Use get_landscape_overview for high-level architecture questions:
-  - What services exist in the system?
-  - How are systems/databases connected?
-
-Use get_node_context for large nodes (packages with many procedures, heavily-used tables):
-  - Returns property summary + connection COUNTS (not full list).
-  - Use this first when a node likely has >20 neighbors, then drill down with get_graph_neighbors.
-
-Use get_graph_neighbors for RELATIONSHIP questions:
-  - Which Procedures/SQLFunctions READ or WRITE a specific table?
-  - Who calls this Procedure? What does this ApiController call?
-  - Impact analysis, call chains, data-flow dependencies.
-  → Pass the bare entity name (e.g. 'AUDIT_LOG', 'EMPLOYEES', 'PayrollController').
-  → Use label hint to narrow search (e.g. label='Table', label='Procedure', label='Job').
-
-Use search_graph_nodes when you don't know the exact entity name:
-  - Returns matching node names, labels, qualified names.
-  - Always call this BEFORE get_graph_neighbors if unsure of the exact name.
-
-Use search_documents for CONTENT or CONCEPTS:
-  - How is X implemented? What does this code do?
-  - Find code related to a topic or feature.
-  → Use a natural-language query string.
-
-Incremental strategy for large impact analysis:
-  1. search_graph_nodes to find the entity.
-  2. get_node_context to see connection counts.
-  3. get_graph_neighbors with direction='incoming' or 'outgoing' for specific rel types.
+Retry strategy when search returns nothing:
+- Remove domain-specific prefixes/suffixes from the query
+- Try English keywords if the first attempt used Vietnamese, or vice versa
+- Try a more general concept (e.g. "payment" instead of "payment gateway integration")
+- Try search_graph_nodes to locate the exact entity name, then use get_graph_neighbors
 """
 
 _ANSWER_SYSTEM = cfg.RAG_SYSTEM_PROMPT or """\
@@ -90,8 +65,8 @@ def _build_final_messages(
         system += f"\n\n---\nContext documents:\n{ctx}\n---"
     else:
         system += (
-            "\n\n---\nNo relevant documents were found in the knowledge base for this query. "
-            "Inform the user clearly.\n---"
+            "\n\n---\n[Note: no matching documents were found in the index for this query. "
+            "If you cannot answer from context, briefly acknowledge the limitation.]\n---"
         )
     messages: list[dict] = [{"role": "system", "content": system}]
     for turn in history:
@@ -318,11 +293,21 @@ def stream_rag_response(
                     },
                 )
 
+                # For small models: inject an explicit retry hint when a
+                # search tool returns nothing so the model knows to rephrase.
+                tool_content = result
+                if fn_name in ("search_documents", "search_graph_nodes") and not docs and not result.get("error"):
+                    tool_content = dict(result)
+                    tool_content["hint"] = (
+                        "No results found for this query. "
+                        "You MUST call the tool again with different, broader keywords before answering."
+                    )
+
                 agent_messages.append(
                     {
                         "role": "tool",
                         "tool_call_id": tc_id,
-                        "content": json.dumps(result, default=str),
+                        "content": json.dumps(tool_content, default=str),
                     }
                 )
 
@@ -367,6 +352,8 @@ def stream_rag_response(
             "file_path": d.get("file_path", ""),
             "rel_path": d.get("file", "") or d.get("file_path", ""),
             "file": d.get("file", ""),
+            "repository": d.get("repository", ""),
+            "file_type": d.get("file_type", ""),
             "text": str(d.get("text", ""))[:2000],
             "score": d.get("score"),
         }

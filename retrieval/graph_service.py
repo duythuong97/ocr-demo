@@ -591,6 +591,9 @@ class GraphService:
         nodes = [{"label": r["label"], "qname": r["qname"], "name": r["name"]} for r in (nodes_rows or [])]
         edges = [{"from": r["from_qname"], "rel": r["rel"], "to": r["to_qname"]} for r in (edges_rows or [])]
 
+        if not nodes:
+            return {"nodes": [], "edges": []}, [], {}
+
         lines = ["Landscape overview — top-level architecture nodes:"]
         for n in nodes:
             lines.append(f"  [{n['label']}] {n['name']}  ({n['qname']})")

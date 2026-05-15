@@ -3,14 +3,11 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 import config as cfg
-from ingest.readers.base import BaseReader
+from ingest.readers.base import BaseReader, _run_ocr
 from pypdf import PdfReader as PdfFileReader
 
 try:
-    from PIL import Image as _Image
-    import pytesseract as _pytesseract
     from pdf2image import convert_from_path as _convert_from_path
-
     _OCR_AVAILABLE = True
 except ImportError:
     _OCR_AVAILABLE = False
@@ -54,13 +51,12 @@ class PdfReader(BaseReader):
             raise ValueError(f"Could not read PDF file '{path.name}': {exc}") from exc
 
     def _ocr_pages(self, path: Path, page_indices: list[int]) -> list[str]:
-        """Render specified pages to images and run Tesseract OCR."""
+        """Render specified pages to images and run PaddleOCR."""
         if not _OCR_AVAILABLE:
             raise ImportError(
-                "pdf2image and pytesseract must be installed for PDF OCR. "
-                "Run: pip install pdf2image pytesseract pillow"
+                "pdf2image must be installed for PDF OCR. "
+                "Run: pip install pdf2image"
             )
-        lang = getattr(cfg, "TESSERACT_LANG", "eng")
         dpi = 200
         results: list[str] = []
 
@@ -79,9 +75,7 @@ class PdfReader(BaseReader):
                 continue
             if img_offset >= len(all_images):
                 break
-            text = _pytesseract.image_to_string(
-                all_images[img_offset], lang=lang
-            ).strip()
+            text = _run_ocr(all_images[img_offset])
             if text:
                 results.append(text)
         return results

@@ -44,6 +44,22 @@ class IndexingWorker:
             "htmlcov",
             "site-packages",
             "lib64",
+            # additional noise dirs
+            "migrations",
+            "static",
+            "public",
+            "assets",
+            "logs",
+            "log",
+            "tmp",
+            "temp",
+            "__snapshots__",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
+            ".tox",
+            "eggs",
+            ".eggs",
         }
     )
     # Windows metadata files that should never be indexed

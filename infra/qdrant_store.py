@@ -165,7 +165,6 @@ class QdrantStore:
                     "repository": repository,
                     "file_type": file_type,
                     "repository_url_base": repository_url_base,
-                    # Structural metadata
                     "heading": chunk.heading,
                     "sheet_name": chunk.sheet_name,
                     "page_num": chunk.page_num,

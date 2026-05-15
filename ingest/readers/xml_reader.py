@@ -37,7 +37,17 @@ def _strip_via_etree(text: str) -> str:
 
     parts: list[str] = []
     # Include meaningful attribute values (id, name, namespace, resultType, …)
-    _KEEP_ATTRS = {"id", "name", "namespace", "resultType", "resultMap", "parameterType"}
+    _KEEP_ATTRS = {
+        # MyBatis mapper
+        "id", "name", "namespace", "resultType", "resultMap",
+        "parameterType", "ofType", "javaType", "jdbcType",
+        "column", "property", "select", "table",
+        # Spring / Hibernate
+        "class", "ref", "type", "value",
+        "bean", "parent", "factory-bean", "factory-method",
+        # General XML
+        "key", "code", "label",
+    }
     for elem in root.iter():
         for attr, val in elem.attrib.items():
             if attr in _KEEP_ATTRS and val and val.strip():
