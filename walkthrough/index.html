@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>業務フロー ウォークスルー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 左にフロー目録、右に「フロー図 ⇄ 手順カード」の操作台。狭い画面では縦積み。 */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --ink: #1b2333;
+  --muted: #5b6578;
+  --line: #dce1e9;
+  --accent: #2a4d8f;      /* 藍 */
+  --accent-soft: #e5ebf6;
+  --on-accent: #ffffff;
+  --decision: #9a6416;
+  --decision-soft: #fdf1d8;
+  --ok: #2f7d4f;
+  --danger: #b03a2e;
+  --font-display: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+  --font-body: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10141b; --surface: #171d27; --ink: #e5e9f0; --muted: #98a2b4; --line: #283141;
+    --accent: #86a7e8; --accent-soft: #1d2940; --on-accent: #0f1622;
+    --decision: #e3aa52; --decision-soft: #352812; --ok: #63c08a; --danger: #ef8a7e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10141b; --surface: #171d27; --ink: #e5e9f0; --muted: #98a2b4; --line: #283141;
+  --accent: #86a7e8; --accent-soft: #1d2940; --on-accent: #0f1622;
+  --decision: #e3aa52; --decision-soft: #352812; --ok: #63c08a; --danger: #ef8a7e;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.7 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, .mono { font-family: var(--font-mono); font-size: .86em; }
+
+.app { display: grid; grid-template-columns: 264px minmax(0, 1fr); min-height: 100%; }
+
+/* ── 目録 ── */
+.index {
+  border-right: 1px solid var(--line); padding: 20px 16px; display: flex; flex-direction: column; gap: 16px;
+  position: sticky; top: env(safe-area-inset-top, 0px); height: 100vh; overflow: auto;
+}
+.brand { display: flex; flex-direction: column; gap: 2px; }
+.brand b { font: 700 17px/1.3 var(--font-display); letter-spacing: .02em; }
+.brand span { color: var(--muted); font-size: 12px; }
+.search {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--surface);
+}
+.cat { display: flex; flex-direction: column; gap: 4px; }
+.cat h3 { margin: 0 0 2px; font-size: 11px; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.flow-link {
+  text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: var(--r); cursor: pointer;
+  display: flex; flex-direction: column; gap: 0;
+}
+.flow-link:hover { background: var(--accent-soft); }
+.flow-link[aria-current="true"] { background: var(--accent); color: var(--on-accent); }
+.flow-link[aria-current="true"] small { color: inherit; opacity: .8; }
+.flow-link small { color: var(--muted); font-size: 12px; }
+.index-foot { margin-top: auto; font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.index-foot a { color: var(--accent); }
+
+/* ── メイン ── */
+main { padding-block: 24px 48px; padding-inline: 28px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.flow-head { display: flex; flex-direction: column; gap: 8px; max-width: 980px; }
+.eyebrow { font: 500 12px/1 var(--font-mono); color: var(--muted); letter-spacing: .04em; }
+.flow-head h1 { margin: 0; font: 700 26px/1.35 var(--font-display); text-wrap: balance; }
+.flow-head p { margin: 0; color: var(--muted); max-width: 68ch; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); }
+.meta b { color: var(--ink); font-weight: 700; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tab {
+  border: 0; background: none; padding: 8px 14px; cursor: pointer; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 700;
+}
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+/* Walkthrough */
+.walk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 20px; align-items: start; }
+.diagram {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 12px; overflow: auto; max-height: calc(100vh - 220px); position: sticky; top: 16px;
+}
+.diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+.diagram .node { cursor: pointer; }
+.diagram-hint { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; min-width: 0;
+}
+.card.decision { border-color: var(--decision); }
+.step-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.step-no { font: 500 12px/1 var(--font-mono); color: var(--muted); letter-spacing: .04em; }
+.progress { height: 4px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); transition: width .25s; }
+.card h2 { margin: 0; font: 700 21px/1.4 var(--font-display); text-wrap: balance; }
+.who { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+.actor { background: var(--accent-soft); color: var(--accent); font-weight: 700; padding: 2px 10px; border-radius: 99px; }
+.card.decision .actor { background: var(--decision-soft); color: var(--decision); }
+.screen { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); border: 1px dashed var(--line); padding: 1px 8px; border-radius: 4px; }
+.sec { display: flex; flex-direction: column; gap: 6px; }
+.sec h4 { margin: 0; font-size: 11px; letter-spacing: .1em; color: var(--muted); }
+.sec p { margin: 0; }
+ol.actions { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 4px; }
+ol.actions li::marker { font-family: var(--font-mono); color: var(--accent); }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; color: var(--muted); letter-spacing: .06em; font-weight: 700; }
+td.ex { font-family: var(--font-mono); font-size: 12.5px; white-space: nowrap; }
+.req { color: var(--danger); font-weight: 700; }
+.expected { border-left: 3px solid var(--ok); padding: 6px 12px; background: color-mix(in srgb, var(--ok) 8%, transparent); border-radius: 0 6px 6px 0; }
+.note-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.note-list li { padding: 6px 10px; border-radius: 6px; background: var(--bg); }
+.note-list .code { font-family: var(--font-mono); color: var(--danger); font-weight: 500; margin-right: 6px; }
+
+.nav { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid var(--line); padding-top: 14px; }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: var(--r);
+  cursor: pointer; font-weight: 700;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); margin-left: auto; }
+.branches { display: flex; flex-direction: column; gap: 8px; }
+.branch {
+  text-align: left; border: 1px solid var(--decision); background: var(--decision-soft); border-radius: var(--r);
+  padding: 10px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+}
+.branch:hover { filter: brightness(.97); }
+.branch b { color: var(--decision); }
+.branch span { font-size: 13px; color: var(--muted); }
+.kbd { font: 11px var(--font-mono); color: var(--muted); }
+
+.trail { display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--muted); align-items: center; }
+.trail button { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; }
+
+/* 全手順 / AI */
+.doc { display: flex; flex-direction: column; gap: 14px; max-width: 860px; }
+.doc .card { gap: 10px; }
+.doc h3 { margin: 0; font: 700 17px/1.4 var(--font-display); }
+.goto { font-size: 13px; color: var(--muted); }
+.ai { display: flex; flex-direction: column; gap: 10px; max-width: 900px; }
+.ai p { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 72ch; }
+.ai pre {
+  margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 14px; overflow: auto; font: 12.5px/1.6 var(--font-mono); max-height: 70vh; white-space: pre;
+}
+.ai .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.toast { font-size: 13px; color: var(--ok); }
+.empty { color: var(--muted); padding: 40px 0; }
+
+@media (max-width: 900px) {
+  .walk { grid-template-columns: minmax(0, 1fr); }
+  .walk #card { order: -1; }
+  .diagram { position: static; max-height: 60vh; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .index { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .index-foot { display: none; }
+  main { padding-inline: 16px; }
+  .index { padding-inline: 16px; }
+  .flow-head h1 { font-size: 22px; }
+  .card { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .progress i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="index" aria-label="フロー一覧">
+    <div class="brand"><b>業務フロー ウォークスルー</b><span>操作手順を1ステップずつ確認する</span></div>
+    <input id="q" class="search" type="search" placeholder="検索（画面ID・用語・タグ）" aria-label="フローを検索">
+    <nav id="flow-list"></nav>
+    <div class="index-foot">
+      <span>フローは <code>flows/*.yaml</code> で管理</span>
+      <a id="contrib-link" href="https://github.com/duythuong97/ocr-demo/blob/main/walkthrough/CONTRIBUTING.md" target="_blank" rel="noopener">フローを追加・修正する方法</a>
+    </div>
+  </aside>
+  <main id="main"><p class="empty">読み込み中…</p></main>
+</div>
+
+<!--FLOWS_DATA-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>
+(async function () {
+  const END = "__end__";
+  const $ = (s, el = document) => el.querySelector(s);
+  const h = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  let FLOWS = window.__FLOWS__;
+  if (!FLOWS) {
+    try { FLOWS = await (await fetch("flows.json", { cache: "no-store" })).json(); }
+    catch (e) {
+      $("#main").innerHTML = `<p class="empty">flows.json を読み込めません。<code>python build.py</code> を実行し、<code>python -m http.server</code> で開いてください。</p>`;
+      return;
+    }
+  }
+
+  const state = { flow: null, stepId: null, history: [], visited: new Set(), tab: "walk", query: "" };
+  const stepOf = (id) => state.flow.steps.find((s) => s.id === id);
+  const indexOf = (id) => state.flow.steps.findIndex((s) => s.id === id);
+
+  // ── 目録 ──
+  function haystack(f) {
+    return [f.title, f.system, f.category, f.summary, ...(f.tags || []), ...(f.roles || []),
+      ...f.steps.flatMap((s) => [s.title, s.screen, ...(s.actions || [])])].join(" ").toLowerCase();
+  }
+  function renderList() {
+    const q = state.query.trim().toLowerCase();
+    const shown = FLOWS.filter((f) => !q || haystack(f).includes(q));
+    const groups = {};
+    shown.forEach((f) => (groups[f.category || "その他"] ||= []).push(f));
+    $("#flow-list").innerHTML = shown.length ? Object.entries(groups).map(([cat, fs]) => `
+      <div class="cat"><h3>${h(cat)}</h3>
+        ${fs.map((f) => `<button class="flow-link" data-flow="${h(f.id)}" aria-current="${state.flow?.id === f.id}">
+          <span>${h(f.title)}</span><small>${h(f.system)} · ${f.steps.length}ステップ</small></button>`).join("")}
+      </div>`).join("") : `<p class="goto">該当するフローがありません</p>`;
+  }
+  $("#flow-list").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-flow]"); if (b) openFlow(b.dataset.flow);
+  });
+  $("#q").addEventListener("input", (e) => { state.query = e.target.value; renderList(); });
+
+  // ── フロー ──
+  function openFlow(id, pushHash = true) {
+    const f = FLOWS.find((x) => x.id === id) || FLOWS[0];
+    if (!f) return;
+    state.flow = f; state.history = []; state.visited = new Set();
+    goStep(f.steps[0].id, false);
+    if (pushHash) { try { history.replaceState(null, "", "#" + f.id); } catch (e) {} }
+    renderList(); render();
+  }
+
+  function goStep(id, record = true) {
+    if (record && state.stepId) state.history.push(state.stepId);
+    state.stepId = id;
+    if (id !== END) state.visited.add(id);
+  }
+  function back() { if (state.history.length) { state.stepId = state.history.pop(); render(); } }
+
+  function render() {
+    const f = state.flow;
+    $("#main").innerHTML = `
+      <header class="flow-head">
+        <div class="eyebrow">${h(f.id)} · v${h(f.version ?? 1)}</div>
+        <h1>${h(f.title)}</h1>
+        <p>${h(f.summary)}</p>
+        <div class="meta">
+          <span>システム <b>${h(f.system)}</b></span>
+          ${f.owner ? `<span>管理 <b>${h(f.owner)}</b></span>` : ""}
+          ${f.updated ? `<span>更新 <b class="mono">${h(f.updated)}</b></span>` : ""}
+          <a href="${h(f.sourceUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">このフローを編集</a>
+        </div>
+        ${f.roles?.length ? `<div class="chips">${f.roles.map((r) => `<span class="chip">${h(r)}</span>`).join("")}</div>` : ""}
+      </header>
+      <div class="tabs" role="tablist">
+        ${[["walk", "ウォークスルー"], ["doc", "全手順"], ["ai", "AI用テキスト"]].map(([k, l]) =>
+          `<button class="tab" role="tab" data-tab="${k}" aria-selected="${state.tab === k}">${l}</button>`).join("")}
+      </div>
+      <section id="pane"></section>`;
+    renderPane();
+  }
+
+  function renderPane() {
+    const pane = $("#pane");
+    if (state.tab === "walk") {
+      pane.innerHTML = `<div class="walk">
+        <div class="diagram" id="diagram"><p class="diagram-hint">図のボックスをクリックするとその手順へ移動</p><div id="svg"></div></div>
+        <div id="card"></div></div>`;
+      renderCard(); renderDiagram();
+    } else if (state.tab === "doc") {
+      pane.innerHTML = `<div class="doc">${renderPreconditions()}${state.flow.steps.map((s, i) => `
+        <article class="card ${s.type === "decision" ? "decision" : ""}">
+          <div class="step-no">STEP ${String(i + 1).padStart(2, "0")} · ${h(s.id)}</div>
+          <h3>${h(s.title)}</h3>${stepBody(s)}${docNext(s)}
+        </article>`).join("")}${renderRefs()}</div>`;
+    } else {
+      pane.innerHTML = `<div class="ai">
+        <p>このフローを AI に渡すための Markdown です。全フローをまとめた版は <code>dist/flows-for-ai.md</code> に出力されます。元データの YAML（<code>${h(state.flow.source)}</code>）も AI がそのまま読めます。</p>
+        <div class="row"><button class="btn" id="copy">Markdown をコピー</button><span class="toast" id="toast" hidden>コピーしました</span></div>
+        <pre id="md">${h(state.flow.markdown)}</pre></div>`;
+      $("#copy").onclick = async () => {
+        try { await navigator.clipboard.writeText(state.flow.markdown); $("#toast").hidden = false; }
+        catch (e) { const r = document.createRange(); r.selectNodeContents($("#md")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+      };
+    }
+  }
+
+  function renderPreconditions() {
+    const p = state.flow.preconditions;
+    return p?.length ? `<article class="card"><div class="sec"><h4>前提条件</h4><ul class="note-list">${p.map((x) => `<li>${h(x)}</li>`).join("")}</ul></div></article>` : "";
+  }
+  function renderRefs() {
+    const r = state.flow.references;
+    return r?.length ? `<article class="card"><div class="sec"><h4>参照資料</h4><ul class="note-list">${r.map((x) => `<li>${h(x.title)}${x.location ? ` <span class="goto">（${h(x.location)}）</span>` : ""}</li>`).join("")}</ul></div></article>` : "";
+  }
+  function titleOf(id) { return id === END ? "完了" : stepOf(id)?.title || id; }
+  function docNext(s) {
+    if (s.type === "decision") return `<ul class="note-list">${s.branches.map((b) => `<li><b>${h(b.label)}</b> → ${h(titleOf(b.next))}${b.note ? `<br><span class="goto">${h(b.note)}</span>` : ""}</li>`).join("")}</ul>`;
+    return `<div class="goto">次へ → ${h(titleOf(s.next))}</div>`;
+  }
+
+  function stepBody(s) {
+    let out = `<div class="who">${s.actor ? `<span class="actor">${h(s.actor)}</span>` : ""}${s.screen ? `<span class="screen">${h(s.screen)}</span>` : ""}</div>`;
+    if (s.description) out += `<div class="sec"><p>${h(s.description)}</p></div>`;
+    if (s.actions?.length) out += `<div class="sec"><h4>操作</h4><ol class="actions">${s.actions.map((a) => `<li>${h(a)}</li>`).join("")}</ol></div>`;
+    if (s.inputs?.length) out += `<div class="sec"><h4>入力項目</h4><div class="tbl-wrap"><table>
+      <thead><tr><th>項目</th><th>入力例</th><th>備考</th></tr></thead><tbody>
+      ${s.inputs.map((i) => `<tr><td>${h(i.field)}${i.required ? ' <span class="req" title="必須">*</span>' : ""}</td><td class="ex">${h(i.example)}</td><td>${h(i.note)}</td></tr>`).join("")}
+      </tbody></table></div></div>`;
+    if (s.expected) out += `<div class="sec"><h4>期待結果</h4><p class="expected">${h(s.expected)}</p></div>`;
+    if (s.errors?.length) out += `<div class="sec"><h4>よくあるエラー</h4><ul class="note-list">${s.errors.map((e) => `<li><span class="code">${h(e.code)}</span>${h(e.message)}<br><span class="goto">対処：${h(e.fix)}</span></li>`).join("")}</ul></div>`;
+    if (s.tips?.length) out += `<div class="sec"><h4>ヒント</h4><ul class="note-list">${s.tips.map((t) => `<li>${h(t)}</li>`).join("")}</ul></div>`;
+    return out;
+  }
+
+  function renderCard() {
+    const f = state.flow, card = $("#card");
+    const trail = state.history.length ? `<div class="trail">経路：${state.history.map((id) => `<button data-jump="${h(id)}">${h(stepOf(id).title)}</button>`).join(" › ")}</div>` : "";
+    const pct = state.stepId === END ? 100 : Math.round((state.visited.size / f.steps.length) * 100);
+
+    if (state.stepId === END) {
+      card.innerHTML = `<div class="card">
+        <div class="step-top"><span class="step-no">COMPLETE</span></div>
+        <div class="progress"><i style="width:100%"></i></div>
+        <h2>フロー完了</h2>
+        <p style="margin:0">${state.visited.size} / ${f.steps.length} ステップを通過しました。通らなかった手順は「全手順」タブで確認できます。</p>
+        ${trail}
+        <div class="nav"><button class="btn" data-act="back">← 戻る</button><button class="btn primary" data-act="restart">最初から</button></div></div>`;
+      return;
+    }
+    const s = stepOf(state.stepId), i = indexOf(s.id), dec = s.type === "decision";
+    const nav = dec
+      ? `<div class="sec"><h4>分岐を選択</h4><div class="branches">${s.branches.map((b, n) => `<button class="branch" data-go="${h(b.next)}">
+          <b>${h(b.label)} <span class="kbd">[${n + 1}]</span></b><span>→ ${h(titleOf(b.next))}${b.note ? `　${h(b.note)}` : ""}</span></button>`).join("")}</div></div>
+        <div class="nav"><button class="btn" data-act="back" ${state.history.length ? "" : "disabled"}>← 戻る</button></div>`
+      : `<div class="nav"><button class="btn" data-act="back" ${state.history.length ? "" : "disabled"}>← 戻る</button>
+          <button class="btn primary" data-go="${h(s.next)}">${s.next === END ? "完了する" : "次へ →"}</button></div>`;
+    card.innerHTML = `<div class="card ${dec ? "decision" : ""}">
+      <div class="step-top"><span class="step-no">STEP ${String(i + 1).padStart(2, "0")} / ${String(f.steps.length).padStart(2, "0")}${dec ? " · 分岐" : ""}</span><span class="kbd">← → で移動</span></div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      <h2>${h(s.title)}</h2>
+      ${stepBody(s)}
+      ${nav}
+      ${trail}</div>`;
+  }
+
+  // ── フロー図（mermaid） ──
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  let renderSeq = 0;
+  async function renderDiagram() {
+    const box = $("#svg"); if (!box) return;
+    const f = state.flow;
+    if (!window.mermaid) { box.innerHTML = `<p class="goto">フロー図ライブラリを読み込めませんでした。手順カードは利用できます。</p>`; return; }
+    const nid = (id) => (id === END ? "nEnd" : "n" + indexOf(id));
+    let src = f.mermaid.replace(/^\s*classDef decision .*$/m,
+      `  classDef decision fill:${css("--decision-soft")},stroke:${css("--decision")},color:${css("--ink")}`);
+    const visited = [...state.visited].filter((id) => id !== state.stepId).map(nid);
+    src += `\n  classDef visited stroke:${css("--accent")},stroke-width:2px`;
+    src += `\n  classDef current fill:${css("--accent")},stroke:${css("--accent")},color:${css("--on-accent")},stroke-width:3px`;
+    if (visited.length) src += `\n  class ${visited.join(",")} visited`;
+    src += `\n  class ${nid(state.stepId)} current`;
+    mermaid.initialize({
+      startOnLoad: false, securityLevel: "strict", theme: "base",
+      flowchart: { htmlLabels: true, curve: "basis", nodeSpacing: 28, rankSpacing: 36 },
+      themeVariables: {
+        fontFamily: css("--font-body"), fontSize: "13px",
+        primaryColor: css("--surface"), primaryTextColor: css("--ink"), primaryBorderColor: css("--muted"),
+        lineColor: css("--muted"), edgeLabelBackground: css("--surface"), tertiaryColor: css("--surface"),
+      },
+    });
+    const seq = ++renderSeq;
+    try {
+      const { svg } = await mermaid.render("fw" + seq, src);
+      if (seq !== renderSeq || !$("#svg")) return;
+      $("#svg").innerHTML = svg;
+      $("#svg").querySelectorAll("g.node").forEach((g) => {
+        const m = /flowchart-(n\d+|nEnd)-/.exec(g.id); if (!m) return;
+        const key = m[1];
+        if (key === "nEnd") return;
+        g.addEventListener("click", () => { const s = f.steps[+key.slice(1)]; if (s) { goStep(s.id); renderCard(); renderDiagram(); } });
+      });
+      const cur = $("#svg").querySelector(`g.node[id*="-${nid(state.stepId)}-"]`);
+      const d = $("#diagram");
+      if (cur && d.scrollHeight > d.clientHeight) {
+        const top = cur.getBoundingClientRect().top - d.getBoundingClientRect().top + d.scrollTop;
+        d.scrollTo({ top: top - d.clientHeight / 2, behavior: "smooth" });
+      }
+    } catch (e) {
+      box.innerHTML = `<p class="goto">フロー図を描画できませんでした: ${h(e.message || e)}</p>`;
+    }
+  }
+
+  // ── イベント ──
+  $("#main").addEventListener("click", (e) => {
+    const t = e.target.closest("[data-tab],[data-go],[data-act],[data-jump]"); if (!t) return;
+    if (t.dataset.tab) { state.tab = t.dataset.tab; render(); return; }
+    if (t.dataset.go) goStep(t.dataset.go);
+    else if (t.dataset.act === "back") { if (!state.history.length) return; state.stepId = state.history.pop(); }
+    else if (t.dataset.act === "restart") { openFlow(state.flow.id); return; }
+    else if (t.dataset.jump) {
+      const k = state.history.indexOf(t.dataset.jump);
+      state.history = state.history.slice(0, k); state.stepId = t.dataset.jump;
+    }
+    renderCard(); renderDiagram();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (state.tab !== "walk" || e.target.matches("input, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
+    const s = state.stepId !== END && stepOf(state.stepId);
+    if (e.key === "ArrowLeft" && state.history.length) { state.stepId = state.history.pop(); }
+    else if (e.key === "ArrowRight" && s && s.type !== "decision") { goStep(s.next); }
+    else if (/^[1-9]$/.test(e.key) && s?.type === "decision" && s.branches[+e.key - 1]) { goStep(s.branches[+e.key - 1].next); }
+    else return;
+    e.preventDefault(); renderCard(); renderDiagram();
+  });
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => state.tab === "walk" && renderDiagram());
+  new MutationObserver(() => state.tab === "walk" && renderDiagram()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  const fromHash = decodeURIComponent(location.hash.slice(1));
+  openFlow(FLOWS.some((f) => f.id === fromHash) ? fromHash : FLOWS[0]?.id, false);
+  if (!FLOWS.length) $("#main").innerHTML = `<p class="empty">フローがまだありません。<code>flows/</code> に YAML を追加してください。</p>`;
+})();
+</script>
+</body>
+</html>

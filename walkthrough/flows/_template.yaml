@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../flow.schema.json
+# 新しいフローのテンプレート。コピーして flows/<分類>/<名前>.yaml に保存する。
+# ファイル名が "_" で始まるものはビルド対象外。
+id: category-short-name          # 英小文字・数字・ハイフン。全フローで一意
+title: ○○登録フロー
+system: ○○システム
+category: 分類 / 小分類
+summary: >-
+  このフローで何を達成するかを1〜2文で。
+roles: [担当者A, 承認者B]
+preconditions:
+  - 事前に必要な権限・マスタ登録など
+tags: [キーワード1, キーワード2]
+owner: 管理部署
+updated: 2026-01-01
+version: 1
+references:
+  - title: 元になった資料名
+    location: 章・ページ
+
+steps:
+  - id: first-step               # フロー内で一意
+    title: 画面を開く
+    actor: 担当者A
+    screen: XXX-0000 画面名
+    actions:
+      - メニュー「○○」→「△△」を選択する
+    expected: ○○画面が表示される
+    # next: 省略すると次のステップへ進む
+
+  - id: check
+    type: decision               # 分岐
+    title: ○○は条件を満たすか？
+    actor: システム
+    branches:
+      - label: はい
+        next: last-step
+      - label: いいえ
+        next: first-step
+        note: 戻って修正する
+
+  - id: last-step
+    title: 登録する
+    actor: 担当者A
+    actions:
+      - 「登録」ボタンを押下する
+    inputs:
+      - field: 項目名
+        example: 入力例
+        required: true
+        note: 補足
+    errors:
+      - code: E0000
+        message: エラーメッセージ
+        fix: 対処方法
+    tips:
+      - 知っておくと便利なこと
+    end: true
