@@ -1,0 +1,76 @@
+kind: flow
+schemaVersion: 2
+id: sales-order-entry
+title: Enter and confirm a sales order
+system: Sales (SLS)
+module: Order Management
+summary: Register a customer order, pass the automatic credit check (or get an override), and confirm it for shipping.
+roles: [Sales Rep, Sales Manager]
+trigger:
+  - Customer.status = Active
+outcome:
+  - SalesOrder.status = Confirmed
+source: SLS Operation Manual v3.2, ch.4 p.45-58
+steps:
+  - id: open-order
+    title: Open order entry
+    actor: Sales Rep
+    screen: { id: SLS-0210, name: Order Entry }
+    actions:
+      - Menu "Orders" > "New order"
+    expected: Order Entry opens in new mode
+  - id: header
+    title: Pick the customer and delivery terms
+    actor: Sales Rep
+    screen: { id: SLS-0210, name: Order Entry }
+    actions:
+      - Press F4 in "Customer code" and pick the customer
+      - Enter requested delivery date and ship-to
+    inputs:
+      - { field: Customer code, maps: Customer.code, example: C102938, required: true, note: Blocked customers cannot be selected }
+      - { field: Requested date, maps: SalesOrder.requestedDate, example: 2026-10-09, required: true, note: At least 2 business days ahead }
+    errors:
+      - { code: E1023, message: Customer is blocked, fix: Ask Sales Admin to reactivate the customer first }
+  - id: lines
+    title: Add order lines
+    actor: Sales Rep
+    screen: { id: SLS-0211, name: Order Lines }
+    actions:
+      - Click "Add line", enter item code and quantity
+      - Click "Credit check"
+    inputs:
+      - { field: Item code, maps: Item.code, example: P-40021, required: true }
+      - { field: Quantity, maps: SalesOrderLine.qty, example: "120", required: true, note: In base units, not cases }
+    produces: [SalesOrder.status = Draft]
+  - id: credit-check
+    type: decision
+    title: Is the order within the credit limit?
+    actor: System
+    screen: { id: SLS-0211, name: Order Lines }
+    branches:
+      - { label: Within limit, next: confirm }
+      - { label: Over limit, next: request-override }
+  - id: request-override
+    title: Request a credit override
+    actor: Sales Rep
+    screen: { id: SLS-0215, name: Credit Override Request }
+    actions:
+      - Click "Request override", enter reason and expected payment date
+    produces: [SalesOrder.status = PendingApproval]
+  - id: wait-approval
+    type: decision
+    title: Did the manager approve?
+    actor: Sales Manager
+    requires: [SalesOrder.status = Approved]
+    branches:
+      - { label: Approved, next: confirm }
+      - { label: Sent back, next: lines, note: Adjust quantity or date and re-check }
+  - id: confirm
+    title: Confirm the order
+    actor: Sales Rep
+    screen: { id: SLS-0211, name: Order Lines }
+    actions:
+      - Click "Register", then "Yes"
+    expected: An order number like SO-2026-0012345 is issued
+    produces: [SalesOrder.status = Confirmed]
+    end: true

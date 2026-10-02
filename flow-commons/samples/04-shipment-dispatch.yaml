@@ -1,0 +1,41 @@
+kind: flow
+schemaVersion: 2
+id: shipment-dispatch
+title: Dispatch a confirmed order
+system: Logistics (LGS)
+module: Warehouse
+summary: Turn confirmed sales orders into shipping instructions, pick, pack and ship.
+roles: [Warehouse Staff, Logistics Coordinator]
+trigger:
+  - SalesOrder.status = Confirmed
+outcome:
+  - Shipment.status = Shipped
+source: Warehouse SOP 2025
+steps:
+  - id: check-order
+    title: Look up the order (optional)
+    actor: Logistics Coordinator
+    screen: { id: SLS-0210, name: Sales Order Input }
+    actions: [Open the order in read-only mode to check ship-to and date]
+  - id: instruct
+    title: Create shipping instructions
+    actor: Logistics Coordinator
+    screen: { id: LGS-0300, name: Shipping Instructions }
+    actions:
+      - Filter by ship date, tick the orders, click "Instruct"
+    expected: Pick lists print in the warehouse
+    produces: [Shipment.status = Planned]
+  - id: pick
+    title: Pick and pack
+    actor: Warehouse Staff
+    screen: { id: LGS-0310, name: Picking (handheld) }
+    actions: [Scan each item barcode, then the carton label]
+    errors:
+      - { code: W204, message: Quantity mismatch, fix: Recount; if still short, mark "Short pick" and notify the coordinator }
+  - id: ship
+    title: Confirm shipment
+    actor: Warehouse Staff
+    screen: { id: LGS-0320, name: Dispatch }
+    actions: [Scan the carrier manifest, click "Ship"]
+    produces: [Shipment.status = Shipped, SalesOrder.status = Shipped]
+    end: true

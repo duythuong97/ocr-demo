@@ -1,0 +1,27 @@
+kind: flow
+schemaVersion: 2
+id: invoice-issue
+title: Issue the invoice for a shipment
+system: Billing (BIL)
+module: Invoicing
+summary: Create and send the invoice once goods have shipped.
+roles: [Billing Clerk]
+trigger:
+  - Shipment.status = Shipped
+outcome:
+  - Invoice.status = Issued
+steps:
+  - id: queue
+    title: Open the to-invoice queue
+    actor: Billing Clerk
+    screen: { id: BIL-0100, name: Billing Queue }
+    actions: [Filter "Shipped, not invoiced"]
+  - id: issue
+    title: Generate and send invoices
+    actor: Billing Clerk
+    screen: { id: BIL-0100, name: Billing Queue }
+    actions: [Tick the shipments, click "Issue invoice", then "Send by e-mail"]
+    inputs:
+      - { field: Invoice date, maps: Invoice.date, example: 2026-10-12, required: true, note: Defaults to ship date }
+    produces: [Invoice.status = Issued]
+    end: true

@@ -1,0 +1,49 @@
+kind: flow
+schemaVersion: 2
+id: credit-override-approval
+title: Approve or send back a credit override
+system: Sales (SLS)
+module: Workflow
+summary: How a manager reviews an over-limit order in the approval inbox. Contributed separately by someone in the manager role.
+roles: [Sales Mgr]
+trigger:
+  - SalesOrder.status = PendingApproval
+outcome:
+  - SalesOrder.status = Approved
+source: Learned on the job; not in the manual
+steps:
+  - id: inbox
+    title: Open the approval inbox
+    actor: Sales Mgr
+    screen: { id: SLS-0900, name: Approval Workflow }
+    actions:
+      - Click the bell icon, or menu "Workflow" > "My approvals"
+  - id: review
+    title: Review exposure and reason
+    actor: Sales Mgr
+    screen: { id: SLS-0901, name: Approval Detail }
+    actions:
+      - Check "Open AR", "Order amount" and the requester's reason
+    tips:
+      - The "Payment history" tab shows the last 12 months of late payments
+  - id: decide
+    type: decision
+    title: Approve?
+    actor: Sales Mgr
+    branches:
+      - { label: Approve, next: approve }
+      - { label: Send back, next: send-back }
+  - id: approve
+    title: Approve the override
+    actor: Sales Mgr
+    screen: { id: SLS-0901, name: Approval Detail }
+    actions: [Click "Approve"]
+    produces: [SalesOrder.status = Approved]
+    end: true
+  - id: send-back
+    title: Send back with a comment
+    actor: Sales Mgr
+    screen: { id: SLS-0901, name: Approval Detail }
+    actions: [Write what to change, click "Send back"]
+    produces: [SalesOrder.status = Draft]
+    end: true

@@ -1,0 +1,43 @@
+kind: flow
+schemaVersion: 2
+id: payment-matching
+title: Match customer payments to invoices
+system: Finance (FIN)
+module: Accounts Receivable
+summary: Match incoming bank payments to open invoices. Nobody has described yet how bank statements get imported.
+roles: [AR Accountant]
+trigger:
+  - Invoice.status = Issued
+  - BankStatement.status = Imported
+outcome:
+  - Invoice.status = Paid
+steps:
+  - id: open-matching
+    title: Open payment matching
+    actor: AR Accountant
+    screen: { id: FIN-0410, name: Payment Matching }
+    actions: [Select the bank account and statement date]
+  - id: auto-match
+    title: Run auto-match
+    actor: AR Accountant
+    screen: { id: FIN-0410, name: Payment Matching }
+    actions: [Click "Auto match"; review suggestions by invoice number]
+  - id: residual
+    type: decision
+    title: Anything left unmatched?
+    actor: AR Accountant
+    branches:
+      - { label: No, next: post }
+      - { label: Yes, next: manual }
+  - id: manual
+    title: Match the rest by hand
+    actor: AR Accountant
+    screen: { id: FIN-0411, name: Manual Matching }
+    actions: [Drag each payment onto its invoice; split if partial]
+  - id: post
+    title: Post the matching
+    actor: AR Accountant
+    screen: { id: FIN-0410, name: Payment Matching }
+    actions: [Click "Post"]
+    produces: [Invoice.status = Paid]
+    end: true

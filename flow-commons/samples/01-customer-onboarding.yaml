@@ -1,0 +1,43 @@
+kind: flow
+schemaVersion: 2
+id: customer-onboarding
+title: Register a new customer and set a credit limit
+system: Master Data (MDM)
+module: Customer
+summary: Create a customer master record, get it verified, and set the credit limit so sales can take orders.
+roles: [Sales Admin, Credit Controller]
+trigger: []
+outcome:
+  - Customer.status = Active
+source: MDM Operation Guide v2.1, ch.3
+steps:
+  - id: open-registration
+    title: Open customer registration
+    actor: Sales Admin
+    screen: { id: MDM-0100, name: Customer Registration }
+    actions:
+      - Menu "Master Data" > "Customer" > "New"
+    expected: An empty registration form opens
+  - id: enter-basics
+    title: Enter company details
+    actor: Sales Admin
+    screen: { id: MDM-0100, name: Customer Registration }
+    actions:
+      - Fill company name, tax code, billing address
+      - Click "Save draft"
+    inputs:
+      - { field: Customer No., maps: Customer.code, example: C102938, required: true, note: Auto-numbered if left blank }
+      - { field: Tax code, maps: Customer.taxCode, example: "0312345678", required: true }
+    produces: [Customer.status = Draft]
+  - id: set-credit
+    title: Set the credit limit
+    actor: Credit Controller
+    screen: { id: MDM-0120, name: Credit Limit Setup }
+    actions:
+      - Search the customer by code
+      - Enter the credit limit and payment terms, click "Approve"
+    inputs:
+      - { field: Credit limit, maps: Customer.creditLimit, example: "50,000 USD", required: true }
+      - { field: Payment terms, maps: Customer.paymentTerms, example: Net 30, required: true }
+    produces: [Customer.status = Active]
+    end: true

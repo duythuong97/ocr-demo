@@ -1,0 +1,1124 @@
+<title>Flow Commons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one top bar with the library's vital signs, four working views beneath it.
+   Flows are nodes, entity states are the wires between them. */
+:root {
+  --bg: #f4f6f6;
+  --surface: #ffffff;
+  --sunken: #eaeeee;
+  --ink: #17201f;
+  --muted: #5a6866;
+  --line: #d8dfde;
+  --accent: #0e6b68;          /* handoff / primary */
+  --accent-soft: #dff0ee;
+  --on-accent: #ffffff;
+  --decision: #946012;
+  --decision-soft: #fbf0da;
+  --gap: #b4441f;
+  --gap-soft: #fbe6de;
+  --alias: #6a4fb3;
+  --alias-soft: #ece7f8;
+  --ok: #2e7a4c;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1514; --surface: #161e1d; --sunken: #1c2625; --ink: #e3ebea; --muted: #93a3a0; --line: #283533;
+    --accent: #5cc2bb; --accent-soft: #15302e; --on-accent: #08201e;
+    --decision: #e2ad5b; --decision-soft: #33270f; --gap: #f08a66; --gap-soft: #3a1d13;
+    --alias: #b49cf0; --alias-soft: #261f3d; --ok: #69c28d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1514; --surface: #161e1d; --sunken: #1c2625; --ink: #e3ebea; --muted: #93a3a0; --line: #283533;
+  --accent: #5cc2bb; --accent-soft: #15302e; --on-accent: #08201e;
+  --decision: #e2ad5b; --decision-soft: #33270f; --gap: #f08a66; --gap-soft: #3a1d13;
+  --alias: #b49cf0; --alias-soft: #261f3d; --ok: #69c28d;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--font-body); }
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, .mono { font-family: var(--font-mono); font-size: .86em; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; text-wrap: balance; margin: 0; }
+
+/* ── Top bar ── */
+.top { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+.top-in { max-width: 1320px; margin: 0 auto; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 10px; }
+.brandrow { display: flex; align-items: center; gap: 12px 24px; flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand b { font: 600 20px/1 var(--font-display); letter-spacing: .01em; }
+.brand span { font-size: 12.5px; color: var(--muted); }
+.vitals { display: flex; gap: 4px 18px; flex-wrap: wrap; margin-left: auto; font-size: 12.5px; color: var(--muted); }
+.vitals b { font: 500 15px/1 var(--font-mono); color: var(--ink); margin-right: 4px; font-variant-numeric: tabular-nums; }
+.vitals .warn b { color: var(--gap); }
+.tabs { display: flex; gap: 2px; overflow-x: auto; }
+.tab { border: 0; background: none; padding: 8px 14px 10px; cursor: pointer; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab .n { font: 500 11px var(--font-mono); background: var(--sunken); padding: 1px 6px; border-radius: 99px; margin-left: 4px; }
+.tab .n.hot { background: var(--gap-soft); color: var(--gap); }
+
+.wrap { max-width: 1320px; margin: 0 auto; padding-block: 20px 56px; padding-inline: 20px; display: flex; flex-direction: column; gap: 18px; }
+.banner { font-size: 13.5px; padding: 8px 12px; border-radius: var(--r); background: var(--decision-soft); color: var(--ink); border: 1px solid var(--decision); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.empty { color: var(--muted); padding: 32px 0; text-align: left; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.panel h2 { font-size: 19px; }
+.panel h3 { font-size: 16px; }
+.eyebrow { font: 500 11.5px/1 var(--font-mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 7px 13px; border-radius: var(--r); cursor: pointer; font-weight: 600; font-size: 14px; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.btn.sm { padding: 3px 9px; font-size: 12.5px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); white-space: nowrap; }
+.state { font-family: var(--font-mono); font-size: 11.5px; background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.state.gap { background: var(--gap-soft); color: var(--gap); }
+.linkish { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; font-weight: 600; text-align: left; }
+.linkish:hover { text-decoration: underline; }
+
+/* ── Contribute ── */
+.steps3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.stepnum { font: 600 13px/1 var(--font-mono); color: var(--accent); }
+.contrib { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+textarea { width: 100%; min-height: 260px; resize: vertical; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); padding: 10px 12px; font: 12.5px/1.55 var(--font-mono); }
+.check { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.check li { padding: 6px 10px; border-radius: 6px; background: var(--sunken); }
+.check li.err { background: var(--gap-soft); color: var(--gap); }
+.check li.ok { color: var(--ok); }
+.check li.link { background: var(--accent-soft); }
+.check li.fill { background: var(--accent-soft); font-weight: 600; }
+.check li.alias { background: var(--alias-soft); }
+.note { font-size: 13px; color: var(--muted); }
+.status { font-size: 13px; min-height: 1.2em; }
+.status.bad { color: var(--gap); }
+.status.good { color: var(--ok); }
+
+/* ── Library / walkthrough ── */
+.lib { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 18px; align-items: start; }
+.flowlist { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 120px; }
+.flowlist input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+.grp { display: flex; flex-direction: column; gap: 2px; }
+.grp h4 { margin: 0 0 2px; font: 500 11px var(--font-mono); letter-spacing: .06em; color: var(--muted); text-transform: uppercase; }
+.fl { text-align: left; border: 0; background: none; border-radius: var(--r); padding: 7px 9px; cursor: pointer; display: flex; flex-direction: column; }
+.fl:hover { background: var(--accent-soft); }
+.fl[aria-current="true"] { background: var(--accent); color: var(--on-accent); }
+.fl small { font-size: 11.5px; opacity: .75; }
+.flowhead { display: flex; flex-direction: column; gap: 8px; }
+.flowhead h2 { font-size: 24px; }
+.meta { display: flex; gap: 4px 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.meta b { color: var(--ink); font-weight: 600; }
+.ends { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.end-box { border: 1px dashed var(--line); border-radius: var(--r); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.end-box .lbl { font: 500 11px var(--font-mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.walk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 16px; align-items: start; }
+.diagram { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px; overflow: auto; max-height: calc(100vh - 200px); position: sticky; top: 120px; }
+.diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+.diagram .node { cursor: pointer; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card.decision { border-color: var(--decision); }
+.card h3 { font-size: 20px; }
+.prog { height: 4px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.prog i { display: block; height: 100%; background: var(--accent); }
+.who { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+.actor { background: var(--accent-soft); color: var(--accent); font-weight: 600; padding: 1px 10px; border-radius: 99px; }
+.card.decision .actor { background: var(--decision-soft); color: var(--decision); }
+.screen { font: 12px var(--font-mono); color: var(--muted); border: 1px dashed var(--line); padding: 1px 8px; border-radius: 4px; }
+.sec { display: flex; flex-direction: column; gap: 5px; }
+.sec h4 { margin: 0; font: 500 11px var(--font-mono); letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+.sec p { margin: 0; }
+ol.acts { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 3px; }
+ol.acts li::marker { font-family: var(--font-mono); color: var(--accent); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 11px var(--font-mono); color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+td.mono { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+.expected { border-left: 3px solid var(--ok); padding: 5px 12px; background: var(--sunken); border-radius: 0 6px 6px 0; }
+.notes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+.notes li { padding: 6px 10px; border-radius: 6px; background: var(--sunken); }
+.notes .code { font-family: var(--font-mono); color: var(--gap); margin-right: 6px; }
+.handoff { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: var(--r); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.handoff .lbl { font: 500 11px var(--font-mono); letter-spacing: .06em; color: var(--accent); text-transform: uppercase; }
+.nav { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 12px; }
+.nav .primary { margin-left: auto; }
+.branch { text-align: left; border: 1px solid var(--decision); background: var(--decision-soft); border-radius: var(--r); padding: 9px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 1px; }
+.branch b { color: var(--decision); }
+.branch span { font-size: 12.5px; color: var(--muted); }
+.trail { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.trail button { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; }
+.trail .jr { font-weight: 600; }
+
+/* ── Map ── */
+.mapbox { overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; }
+.mapbox svg { display: block; margin: 0 auto; max-width: none; height: auto; }
+.mapbox .node { cursor: pointer; }
+.legend { display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); align-items: center; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; border: 1px solid var(--line); }
+.lifecycles { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+.lc { display: flex; flex-direction: column; gap: 8px; }
+.lc ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.lc li { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; font-size: 12.5px; align-items: start; }
+.lc li .v { font-family: var(--font-mono); }
+.lc li .v.gap { color: var(--gap); }
+
+/* ── Mappings ── */
+.mgrid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.mlist { display: flex; flex-direction: column; gap: 8px; }
+.m { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+.m .type { font: 500 11px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; padding: 2px 6px; border-radius: 4px; text-align: center; }
+.type.handoff { background: var(--accent-soft); color: var(--accent); }
+.type.alias { background: var(--alias-soft); color: var(--alias); }
+.type.field { background: var(--sunken); color: var(--muted); }
+.m .t { font-weight: 600; font-size: 14px; }
+.m .d { font-size: 12.5px; color: var(--muted); }
+.m .act { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+.conf { font: 500 11px var(--font-mono); }
+.conf.high { color: var(--ok); }
+.conf.medium { color: var(--decision); }
+.decided { font-size: 12px; font-weight: 600; }
+.decided.rej { color: var(--gap); }
+.decided.acc { color: var(--ok); }
+.gapcard { border: 1px solid var(--gap); background: var(--gap-soft); border-radius: var(--r); padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.gapcard b { color: var(--gap); }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.filters button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.cat-tbl td:first-child { white-space: nowrap; }
+
+@media (max-width: 1000px) {
+  .walk, .contrib, .mgrid { grid-template-columns: minmax(0, 1fr); }
+  .walk #card { order: -1; }
+  .diagram { position: static; max-height: 60vh; }
+  .steps3 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .lib { grid-template-columns: minmax(0, 1fr); }
+  .flowlist { position: static; }
+  .top-in, .wrap { padding-inline: 16px; }
+  .vitals { margin-left: 0; }
+  .ends { grid-template-columns: minmax(0, 1fr); }
+  .m { grid-template-columns: minmax(0, 1fr); }
+  .m .act { flex-direction: row; align-items: center; }
+  .lc li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .panel, .card { padding: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brandrow">
+      <div class="brand"><b>Flow Commons</b><span>What people learn about the system, contributed back into one map</span></div>
+      <div class="vitals" id="vitals"></div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<div class="wrap" id="view"><p class="empty">Loading the shared flow library…</p></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>
+(function () {
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const h = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const END = "__end__";
+
+/* ════════════════════════ Templates ════════════════════════ */
+const TEMPLATE_MD = `# Flow contribution
+
+> Write this in your own words, in any language. Keep screen names, button
+> labels and messages exactly as the system shows them.
+> Then turn it into a flow file: paste it into "Convert with Claude" in
+> Flow Commons, or give it to any AI together with the Flow Commons prompt.
+
+## 1. What is this flow?
+- Name:
+- System / module:
+- Who does it (roles):
+- Where you learned it (manual + page, colleague, trial and error):
+
+## 2. Before you start
+What must already be true in the system?
+(e.g. "the customer is registered and active")
+
+## 3. Steps
+For each step: the screen (ID and name if you know them), who does it,
+what you click or type, and what you see afterwards.
+
+1.
+2.
+3.
+
+If the path splits, write it as: "If ..., go to step N. Otherwise step M."
+
+## 4. When it's done
+What has changed in the system?
+(e.g. "the order is Confirmed and has an order number")
+
+## 5. Errors and tips
+- Error code / message -> what to do
+- Tips:
+`;
+
+const SHAPE = `kind: flow
+schemaVersion: 2
+id: kebab-case-unique-id
+title: Imperative sentence ("Enter and confirm a sales order")
+system: System name (CODE)
+module: Module name
+summary: 1-2 sentences
+roles: [Role, Role]
+trigger: [Entity.field = Value]      # what must be true before the flow
+outcome: [Entity.field = Value]      # what is true after the flow
+source: Where this knowledge comes from
+steps:
+  - id: kebab-case-step-id
+    title: Imperative sentence
+    actor: Role (or "System" for automatic checks)
+    screen: { id: SCREEN-ID, name: Screen name }
+    actions: [What to click or type, with button/menu names in quotes]
+    inputs: [{ field: Label on screen, maps: Entity.field, example: ..., required: true, note: ... }]
+    expected: What the person sees afterwards
+    errors: [{ code: ..., message: ..., fix: ... }]
+    tips: [...]
+    produces: [Entity.field = Value]   # state this step changes
+    requires: [Entity.field = Value]   # state this step waits for from elsewhere
+    next: step-id                      # omit to go to the following step
+    end: true                          # on the step(s) that finish the flow
+  - id: some-decision
+    type: decision
+    title: Question ending with "?"
+    actor: Role
+    branches: [{ label: Yes, next: step-id }, { label: No, next: step-id, note: ... }]`;
+
+const RULES = `Rules:
+- Keep screen names, button labels, menu names and messages exactly as written in the notes, in their original language. Do not translate them.
+- Do not invent facts. Leave out fields the notes do not support. If something important is unclear, add a tip that starts with "TODO:".
+- One step = one screen and one coherent set of actions. A split in the path is a separate step with type: decision.
+- State statements look like "SalesOrder.status = Confirmed": PascalCase entity, camelCase field, a value.
+- Reuse the vocabulary below whenever it means the same thing, so the new flow connects to the existing ones.`;
+
+function vocabulary() {
+  const A = state.analysis;
+  if (!A) return "(library is empty)";
+  const states = [...A.stateKeys].sort();
+  const screens = [...A.screens.values()].map((s) => `${s.id} ${s.canonical}`).sort();
+  const roles = [...A.roleCanon.keys()].sort();
+  return `Known states: ${states.join("; ") || "-"}\nKnown screens: ${screens.join("; ") || "-"}\nKnown roles: ${roles.join("; ") || "-"}`;
+}
+function aiPrompt(notes) {
+  return `You convert a person's notes about how they use an enterprise system into a structured flow file for a shared flow library.
+
+Output exactly one YAML document with this shape:
+
+${SHAPE}
+
+${RULES}
+
+${vocabulary()}
+
+The person's notes:
+"""
+${notes || "<paste the filled-in template here>"}
+"""`;
+}
+
+/* ════════════════════════ Validation ════════════════════════ */
+const STATE_RE = /^\s*([A-Z][A-Za-z0-9]*)\.([a-zA-Z][A-Za-z0-9]*)\s*=\s*(.+?)\s*$/;
+const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
+function parseState(s) {
+  const m = STATE_RE.exec(String(s ?? ""));
+  return m ? { entity: m[1], field: m[2], value: m[3], key: `${m[1]}.${m[2]} = ${m[3]}` } : null;
+}
+const arr = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
+
+function validate(f) {
+  const errors = [], warnings = [];
+  if (!f || typeof f !== "object" || Array.isArray(f)) return { errors: ["The file must describe one flow (a mapping/object at the top level)."], warnings };
+  for (const k of ["id", "title", "system", "summary", "steps"]) if (!f[k] || (k === "steps" && !arr(f.steps).length)) errors.push(`Missing "${k}".`);
+  if (f.id && !ID_RE.test(f.id)) errors.push(`Flow id "${f.id}" must use lowercase letters, digits and hyphens.`);
+  const steps = arr(f.steps);
+  const ids = steps.map((s) => s && s.id);
+  const dup = [...new Set(ids.filter((x, i) => ids.indexOf(x) !== i))];
+  if (dup.length) errors.push(`Duplicate step id: ${dup.join(", ")}.`);
+  const idSet = new Set(ids);
+  const checkStates = (list, where) => arr(list).forEach((x) => { if (!parseState(x)) errors.push(`${where}: "${x}" is not a state. Use "Entity.field = Value".`); });
+  checkStates(f.trigger, "trigger"); checkStates(f.outcome, "outcome");
+  steps.forEach((s, i) => {
+    const w = `Step ${i + 1}${s?.id ? ` (${s.id})` : ""}`;
+    if (!s || typeof s !== "object") { errors.push(`${w} is not an object.`); return; }
+    if (!s.id) errors.push(`${w}: missing "id".`); else if (!ID_RE.test(s.id)) errors.push(`${w}: id must use lowercase letters, digits and hyphens.`);
+    if (!s.title) errors.push(`${w}: missing "title".`);
+    checkStates(s.produces, `${w} produces`); checkStates(s.requires, `${w} requires`);
+    if (s.type === "decision") {
+      const b = arr(s.branches);
+      if (b.length < 2) errors.push(`${w}: a decision needs at least 2 branches.`);
+      b.forEach((x) => { if (!idSet.has(x?.next)) errors.push(`${w}: branch "${x?.label}" points to unknown step "${x?.next}".`); });
+    } else {
+      if (s.next && !idSet.has(s.next)) errors.push(`${w}: next points to unknown step "${s.next}".`);
+      if (!arr(s.actions).length && !s.description) warnings.push(`${w}: no actions described.`);
+      if (!s.screen) warnings.push(`${w}: no screen. Screen IDs are how flows get matched to each other.`);
+    }
+  });
+  if (!arr(f.trigger).length && !arr(f.outcome).length) warnings.push(`No trigger or outcome. Without them this flow can't be connected to others.`);
+  return { errors, warnings };
+}
+
+/** Fill in implicit "next" and normalise optional lists. Returns a new object. */
+function normalize(f) {
+  const steps = arr(f.steps).map((s) => ({ ...s, screen: typeof s.screen === "string" ? { id: s.screen, name: s.screen } : s.screen }));
+  steps.forEach((s, i) => {
+    if (s.type === "decision") return;
+    if (s.end) s.next = END;
+    else if (!s.next) s.next = steps[i + 1] ? steps[i + 1].id : END;
+  });
+  return { ...f, roles: arr(f.roles), trigger: arr(f.trigger), outcome: arr(f.outcome), steps };
+}
+
+/* ════════════════════════ Analysis ════════════════════════ */
+const ABBR = { mgr: "manager", mngr: "manager", rep: "representative", admin: "administrator", acct: "accountant", coord: "coordinator", sr: "senior", asst: "assistant", ops: "operations", whs: "warehouse" };
+const normRole = (r) => String(r).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).map((t) => ABBR[t] || t).join(" ");
+
+function analyze(flows, decisions) {
+  const producers = new Map(), consumers = new Map(), stateKeys = new Set();
+  const add = (m, k, v) => { if (!m.has(k)) m.set(k, []); m.get(k).push(v); };
+  const screens = new Map(), roleUses = new Map(), fields = new Map();
+
+  for (const f of flows) {
+    f.outcome.forEach((s) => { const p = parseState(s); if (p) { add(producers, p.key, { flow: f.id, step: null }); stateKeys.add(p.key); } });
+    f.trigger.forEach((s) => { const p = parseState(s); if (p) { add(consumers, p.key, { flow: f.id, step: null }); stateKeys.add(p.key); } });
+    f.roles.forEach((r) => add(roleUses, r, f.id));
+    for (const s of f.steps) {
+      arr(s.produces).forEach((x) => { const p = parseState(x); if (p) { add(producers, p.key, { flow: f.id, step: s.id }); stateKeys.add(p.key); } });
+      arr(s.requires).forEach((x) => { const p = parseState(x); if (p) { add(consumers, p.key, { flow: f.id, step: s.id }); stateKeys.add(p.key); } });
+      if (s.actor && s.actor !== "System") add(roleUses, s.actor, f.id);
+      if (s.screen?.id) {
+        if (!screens.has(s.screen.id)) screens.set(s.screen.id, { id: s.screen.id, names: new Map(), uses: [] });
+        const sc = screens.get(s.screen.id);
+        sc.names.set(s.screen.name, (sc.names.get(s.screen.name) || 0) + 1);
+        sc.uses.push({ flow: f.id, step: s.id, name: s.screen.name });
+      }
+      arr(s.inputs).forEach((i) => {
+        if (!i?.maps) return;
+        if (!fields.has(i.maps)) fields.set(i.maps, { maps: i.maps, labels: new Map() });
+        const fl = fields.get(i.maps);
+        if (!fl.labels.has(i.field)) fl.labels.set(i.field, new Set());
+        fl.labels.get(i.field).add(f.id);
+      });
+    }
+  }
+  screens.forEach((sc) => { sc.canonical = [...sc.names.entries()].sort((a, b) => b[1] - a[1])[0][0]; });
+
+  const mappings = [];
+  const decided = (key, def) => decisions[key]?.decision || def;
+
+  // 1. Handoffs: a state one flow produces is what another flow starts from / waits for.
+  const seen = new Set();
+  for (const [key, cons] of consumers) for (const c of cons) for (const p of producers.get(key) || []) {
+    if (p.flow === c.flow) continue;
+    const mk = `handoff:${p.flow}>${c.flow}:${key}`;
+    if (seen.has(mk)) continue; seen.add(mk);
+    mappings.push({ key: mk, type: "handoff", confidence: "high", from: p, to: c, state: key,
+      title: `${flowTitle(p.flow)} → ${flowTitle(c.flow)}`,
+      detail: `${p.step ? `Step “${stepTitle(p.flow, p.step)}”` : "Flow outcome"} produces ${key}; ${c.step ? `step “${stepTitle(c.flow, c.step)}” waits for it` : "the next flow starts from it"}.`,
+      status: decided(mk, "auto") });
+  }
+  // 2. Screen aliases: same screen id, different names.
+  for (const sc of screens.values()) if (sc.names.size > 1) {
+    const mk = `screen:${sc.id}`;
+    const others = [...sc.names.keys()].filter((n) => n !== sc.canonical);
+    mappings.push({ key: mk, type: "alias", confidence: "high",
+      title: `${sc.id}: “${others.join("”, “")}” = “${sc.canonical}”`,
+      detail: `Same screen ID named differently in ${new Set(sc.uses.map((u) => u.flow)).size} flows. Treated as one screen.`,
+      status: decided(mk, "auto") });
+  }
+  // 3. Role aliases: names that match once abbreviations are expanded.
+  const roles = [...roleUses.keys()];
+  const roleCanon = new Map(roles.map((r) => [r, r]));
+  for (let i = 0; i < roles.length; i++) for (let j = i + 1; j < roles.length; j++) {
+    const a = roles[i], b = roles[j];
+    if (a === b || normRole(a) !== normRole(b)) continue;
+    const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+    const mk = `role:${normRole(a)}:${short}=${long}`;
+    const status = decided(mk, "review");
+    mappings.push({ key: mk, type: "alias", confidence: "medium",
+      title: `Role “${short}” = “${long}”`,
+      detail: `Same words once abbreviations are expanded. Used in ${new Set(roleUses.get(short)).size + new Set(roleUses.get(long)).size} flows.`,
+      status });
+    if (status === "accepted") roleCanon.set(short, long);
+  }
+  for (const r of [...roleCanon.keys()]) if (roleCanon.get(r) !== r) roleCanon.delete(r);
+  // 4. Field labels mapped to one entity field.
+  for (const fl of fields.values()) if (fl.labels.size > 1) {
+    const mk = `field:${fl.maps}`;
+    mappings.push({ key: mk, type: "field", confidence: "high",
+      title: `${[...fl.labels.keys()].map((l) => `“${l}”`).join(" = ")} → ${fl.maps}`,
+      detail: `Different labels in different flows, declared as the same data field.`,
+      status: decided(mk, "auto") });
+  }
+
+  // Gaps: needed states nobody has described how to reach.
+  const gaps = [];
+  for (const [key, cons] of consumers) if (!producers.has(key)) gaps.push({ state: key, neededBy: cons });
+  // Open ends: outcomes nobody picks up yet (informational).
+  const openEnds = [];
+  for (const [key, prods] of producers) if (!consumers.has(key) && prods.some((p) => p.step === null)) openEnds.push({ state: key, producedBy: prods.filter((p) => p.step === null) });
+
+  // Entity lifecycles.
+  const entities = new Map();
+  for (const key of stateKeys) {
+    const p = parseState(key), ek = `${p.entity}.${p.field}`;
+    if (!entities.has(ek)) entities.set(ek, []);
+    entities.get(ek).push({ value: p.value, key, producers: producers.get(key) || [], consumers: consumers.get(key) || [] });
+  }
+
+  const rejected = new Set(mappings.filter((m) => m.status === "rejected").map((m) => m.key));
+  const handoffs = mappings.filter((m) => m.type === "handoff" && !rejected.has(m.key));
+  return { producers, consumers, stateKeys, screens, roleUses, roleCanon, fields, mappings, handoffs, gaps, openEnds, entities };
+}
+
+/* ════════════════════════ State ════════════════════════ */
+const state = {
+  tab: "library", docs: new Map(), flows: [], byId: new Map(), decisions: {}, analysis: null,
+  db: null, user: null, uid: null, canWrite: null, sample: null, downloads: null, mode: "loading", names: {},
+  // library
+  query: "", flowId: null, stepId: null, history: [], visited: new Set(), journey: [],
+  // contribute
+  notes: TEMPLATE_MD, draft: "", draftStatus: "", draftStatusKind: "", draftStatusFlow: null,
+  // mappings
+  mfilter: "all",
+};
+const flowTitle = (id) => state.byId.get(id)?.title || id;
+const stepTitle = (fid, sid) => state.byId.get(fid)?.steps.find((s) => s.id === sid)?.title || sid;
+
+function rebuild() {
+  state.flows = [...state.docs.values()].map((d) => d.flow).filter(Boolean).map(normalize)
+    .sort((a, b) => (a.system || "").localeCompare(b.system || "") || a.title.localeCompare(b.title));
+  state.byId = new Map(state.flows.map((f) => [f.id, f]));
+  state.analysis = analyze(state.flows, state.decisions);
+  if (state.flowId && !state.byId.has(state.flowId)) state.flowId = null;
+}
+
+/* ════════════════════════ Shell ════════════════════════ */
+const TABS = [["contribute", "Contribute"], ["library", "Library"], ["map", "System map"], ["mappings", "Mappings & gaps"]];
+function renderShell() {
+  const A = state.analysis;
+  const contributors = new Set([...state.docs.values()].map((d) => d.sample ? "sample" : d.contributor || "anon"));
+  const review = A ? A.mappings.filter((m) => m.status === "review").length : 0;
+  $("#vitals").innerHTML = A ? `
+    <span><b>${state.flows.length}</b>flows</span>
+    <span><b>${contributors.size}</b>contributors</span>
+    <span><b>${A.screens.size}</b>screens</span>
+    <span><b>${A.handoffs.length}</b>handoffs</span>
+    <span class="${A.gaps.length ? "warn" : ""}"><b>${A.gaps.length}</b>gaps</span>` : "";
+  $("#tabs").innerHTML = TABS.map(([k, l]) => {
+    let n = "";
+    if (k === "library" && A) n = `<span class="n">${state.flows.length}</span>`;
+    if (k === "mappings" && A) n = `<span class="n ${A.gaps.length + review ? "hot" : ""}">${A.gaps.length + review}</span>`;
+    return `<button class="tab" role="tab" data-tab="${k}" aria-selected="${state.tab === k}">${l}${n}</button>`;
+  }).join("");
+}
+$("#tabs").addEventListener("click", (e) => { const t = e.target.closest("[data-tab]"); if (t) go(t.dataset.tab); });
+function go(tab) { state.tab = tab; try { history.replaceState(null, "", "#" + tab); } catch (e) {} render(); window.scrollTo({ top: 0 }); }
+
+function banner() {
+  if (state.mode === "local") return `<div class="banner">The shared library isn't reachable from this view, so imports stay in this tab only. Open the page on claude.ai to contribute to the shared library.</div>`;
+  if (state.canWrite === false) return `<div class="banner">You can browse the library, but your access level doesn't allow adding flows. Ask the owner for Contributor access.</div>`;
+  return "";
+}
+
+function render() {
+  renderShell();
+  const v = $("#view");
+  if (state.mode === "loading") { v.innerHTML = `<p class="empty">Loading the shared flow library…</p>`; return; }
+  const b = banner();
+  if (state.tab === "contribute") v.innerHTML = b + viewContribute();
+  else if (state.tab === "library") v.innerHTML = b + viewLibrary();
+  else if (state.tab === "map") v.innerHTML = b + viewMap();
+  else v.innerHTML = b + viewMappings();
+  if (state.tab === "contribute") afterContribute();
+  if (state.tab === "library" && state.flowId) drawFlowDiagram();
+  if (state.tab === "map") drawMap();
+}
+
+/* ════════════════════════ Contribute ════════════════════════ */
+function viewContribute() {
+  return `
+  <div class="steps3">
+    <section class="panel"><span class="stepnum">1 · DESCRIBE</span><h3>Fill in the template</h3>
+      <p class="small muted">Write down a flow you learned, in plain words and any language. Keep screen and button names exactly as the system shows them.</p>
+      <div class="row"><button class="btn" data-dl="template">Download template (.md)</button><button class="btn" data-copy="template">Copy</button></div></section>
+    <section class="panel"><span class="stepnum">2 · CONVERT</span><h3>Let AI turn it into a flow file</h3>
+      <p class="small muted">Use the button here, or copy the prompt into the AI tool you already use. The prompt lists the library's existing screens, states and roles so the new flow connects to them.</p>
+      <div class="row"><button class="btn" data-copy="prompt">Copy AI prompt</button><button class="btn" data-dl="prompt">Download prompt (.md)</button></div></section>
+    <section class="panel"><span class="stepnum">3 · IMPORT</span><h3>Check and add it</h3>
+      <p class="small muted">Paste or upload the YAML/JSON. The library checks it and shows what it will connect to before you add it.</p>
+      <div class="row"><label class="btn" for="file">Upload .yaml / .json</label><input id="file" type="file" accept=".yaml,.yml,.json,.txt" hidden></div></section>
+  </div>
+  <div class="contrib">
+    <section class="panel">
+      <div class="row" style="justify-content:space-between"><h2>Your notes</h2><span class="eyebrow">template</span></div>
+      <textarea id="notes" spellcheck="false" aria-label="Your notes">${h(state.notes)}</textarea>
+      <div class="row">
+        <button class="btn primary" id="convert" ${state.sample ? "" : "hidden"}>Convert with Claude</button>
+        <button class="btn" id="stop" hidden>Stop</button>
+        <button class="btn" id="example-notes">Load example notes</button>
+      </div>
+      <div class="status" id="convert-status">${state.sample ? "" : `<span class="note">Converting in the page isn't available in this view. Copy the AI prompt and use any AI tool instead.</span>`}</div>
+    </section>
+    <section class="panel">
+      <div class="row" style="justify-content:space-between"><h2>Flow file</h2><span class="eyebrow">yaml or json</span></div>
+      <textarea id="draft" spellcheck="false" aria-label="Flow file" placeholder="Paste the AI's YAML here, upload a file, or use Convert with Claude.">${h(state.draft)}</textarea>
+      <ul class="check" id="check"></ul>
+      <div class="row">
+        <button class="btn primary" id="submit" disabled>Add to library</button>
+        <button class="btn" id="preview" disabled>Preview walkthrough</button>
+        <button class="btn" data-dl="draft" id="dl-draft" disabled>Download .yaml</button>
+      </div>
+      <div class="status ${state.draftStatusKind}" id="submit-status">${h(state.draftStatus)}${state.draftStatusFlow ? ` <button class="linkish" data-flow="${h(state.draftStatusFlow)}">Open it in the library →</button>` : ""}</div>
+    </section>
+  </div>`;
+}
+
+let draftParsed = null;
+function afterContribute() {
+  $("#notes").addEventListener("input", (e) => { state.notes = e.target.value; });
+  $("#draft").addEventListener("input", (e) => { state.draft = e.target.value; state.draftStatus = ""; state.draftStatusFlow = null; $("#submit-status").textContent = ""; checkDraft(); });
+  $("#file").addEventListener("change", async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    state.draft = await f.text(); $("#draft").value = state.draft; checkDraft(); e.target.value = "";
+  });
+  $("#example-notes").onclick = () => { state.notes = EXAMPLE_NOTES; $("#notes").value = EXAMPLE_NOTES; };
+  $("#convert").onclick = convert;
+  $("#submit").onclick = submit;
+  $("#preview").onclick = () => {
+    if (!draftParsed) return;
+    previewFlow = normalize(draftParsed);
+    state.flowId = "__preview__"; resetWalk(); go("library");
+  };
+  checkDraft();
+}
+
+function parseDraft(text) {
+  const t = text.trim();
+  if (!t) return { empty: true };
+  const fence = /```(?:ya?ml|json)?\s*\n([\s\S]*?)```/i.exec(t);
+  const body = fence ? fence[1] : t;
+  try {
+    if (body.startsWith("{")) return { data: JSON.parse(body) };
+    if (!window.jsyaml) return { error: "The YAML reader didn't load. Paste JSON instead, or reload the page." };
+    return { data: window.jsyaml.load(body) };
+  } catch (e) { return { error: `Can't read the file: ${e.message.split("\n")[0]}` }; }
+}
+
+function impactOf(f) {
+  // What would change in the map if this flow were added.
+  const before = state.analysis;
+  const others = state.flows.filter((x) => x.id !== f.id);
+  const after = analyze([...others, f], state.decisions);
+  const items = [];
+  if (state.byId.has(f.id)) items.push({ k: "", t: `Updates the existing flow “${state.byId.get(f.id).title}” (v${(state.docs.get(f.id)?.version || 1) + 1}).` });
+  after.handoffs.filter((m) => m.from.flow === f.id || m.to.flow === f.id).forEach((m) =>
+    items.push({ k: "link", t: m.from.flow === f.id ? `Connects to ${flowTitle(m.to.flow)} via ${m.state}` : `Continues from ${flowTitle(m.from.flow)} via ${m.state}` }));
+  const filled = before.gaps.filter((g) => !after.gaps.some((x) => x.state === g.state));
+  filled.forEach((g) => items.push({ k: "fill", t: `Fills a gap: ${g.state}` }));
+  after.mappings.filter((m) => m.type !== "handoff" && !before.mappings.some((x) => x.key === m.key)).forEach((m) => items.push({ k: "alias", t: `New mapping: ${m.title}` }));
+  after.gaps.filter((g) => g.neededBy.some((n) => n.flow === f.id) && !before.gaps.some((x) => x.state === g.state)).forEach((g) =>
+    items.push({ k: "", t: `Needs ${g.state}, which no flow describes yet. It will show up as a gap.` }));
+  const newScreens = [...after.screens.keys()].filter((k) => !before.screens.has(k));
+  if (newScreens.length) items.push({ k: "", t: `Adds ${newScreens.length} new screen${newScreens.length > 1 ? "s" : ""}: ${newScreens.join(", ")}` });
+  return items;
+}
+
+function checkDraft() {
+  const ul = $("#check"); if (!ul) return;
+  draftParsed = null;
+  const r = parseDraft(state.draft);
+  const setBtns = (ok) => { $("#submit").disabled = !ok || state.canWrite === false; $("#preview").disabled = !ok; $("#dl-draft").disabled = !state.draft.trim(); };
+  if (r.empty) { ul.innerHTML = `<li>Nothing to check yet.</li>`; setBtns(false); return; }
+  if (r.error) { ul.innerHTML = `<li class="err">${h(r.error)}</li>`; setBtns(false); return; }
+  const { errors, warnings } = validate(r.data);
+  if (errors.length) { ul.innerHTML = errors.map((e) => `<li class="err">${h(e)}</li>`).join("") + warnings.map((w) => `<li>${h(w)}</li>`).join(""); setBtns(false); return; }
+  draftParsed = r.data;
+  const f = normalize(r.data);
+  const impact = impactOf(f);
+  ul.innerHTML = `<li class="ok">Valid: “${h(f.title)}”, ${f.steps.length} steps.</li>`
+    + impact.map((i) => `<li class="${i.k}">${h(i.t)}</li>`).join("")
+    + warnings.map((w) => `<li>${h(w)}</li>`).join("");
+  setBtns(true);
+}
+
+let convertCtl = null;
+async function convert() {
+  const st = $("#convert-status"), btn = $("#convert"), stop = $("#stop");
+  if (!state.notes.trim() || state.notes.trim() === TEMPLATE_MD.trim()) { st.className = "status bad"; st.textContent = "Fill in the template first, or load the example notes."; return; }
+  convertCtl = new AbortController();
+  btn.disabled = true; stop.hidden = false; st.className = "status"; st.textContent = "Thinking… this usually takes 20–60 seconds.";
+  stop.onclick = () => convertCtl?.abort();
+  try {
+    const prompt = aiPrompt(state.notes) + `\n\nReply with only the YAML inside one \`\`\`yaml code fence.`;
+    const { text } = await state.sample(prompt, { signal: convertCtl.signal, onText: ({ text }) => { st.textContent = `Writing… ${text.length} characters`; } });
+    const m = /```(?:ya?ml)?\s*\n([\s\S]*?)```/i.exec(text);
+    state.draft = (m ? m[1] : text).trim() + "\n";
+    $("#draft").value = state.draft; checkDraft();
+    st.className = "status good"; st.textContent = "Done. Review the flow file on the right before adding it.";
+  } catch (e) {
+    st.className = "status bad";
+    st.textContent = { cancelled: "Stopped.", not_granted: "Claude wasn't allowed for this page. Copy the AI prompt and use another AI tool.", rate_limited: "Too many requests right now. Wait a minute and try again.", refused: "Claude declined these notes. Try rewording them." }[e.code] || `Conversion failed (${e.code || "error"}). Try again, or use the AI prompt elsewhere.`;
+  } finally { btn.disabled = false; stop.hidden = true; convertCtl = null; }
+}
+
+async function submit() {
+  if (!draftParsed) return;
+  const f = draftParsed, st = $("#submit-status");
+  const prev = state.docs.get(f.id);
+  const doc = { flow: JSON.parse(JSON.stringify(f)), yaml: state.draft, contributor: state.uid, sample: false, submittedAt: new Date().toISOString(), version: (prev?.version || 0) + 1 };
+  $("#submit").disabled = true;
+  try {
+    if (state.db) await state.db.collection("flows").doc(f.id).set(doc);
+    else { state.docs.set(f.id, doc); rebuild(); }
+    state.draftStatus = `Added “${f.title}”. It's now in the library and the map.`; state.draftStatusKind = "good"; state.draftStatusFlow = f.id;
+    state.draft = ""; draftParsed = null; state.flowId = f.id; resetWalk();
+    render();
+  } catch (e) {
+    st.className = "status bad";
+    st.textContent = e.code === "invalid_argument" ? "Your access level doesn't allow adding flows, or the file is too large." : e.code === "quota_exceeded" ? "The library is full. Ask the owner to clean up old flows." : `Couldn't save (${e.code || e.message}). Try again.`;
+    if (e.code === "invalid_argument") state.canWrite = false;
+    $("#submit").disabled = false;
+  }
+}
+
+async function offerFile(kind) {
+  let filename, data;
+  if (kind === "template") { filename = "flow-contribution-template.md"; data = TEMPLATE_MD; }
+  else if (kind === "prompt") { filename = "flow-commons-ai-prompt.md"; data = aiPrompt(""); }
+  else { const p = parseDraft(state.draft); filename = `${(p.data && p.data.id) || "flow"}.yaml`; data = state.draft; }
+  if (state.downloads) {
+    try { await state.downloads.save({ filename, data }); return; }
+    catch (e) { if (e.code === "declined") return; }
+  }
+  copyText(data, kind);
+}
+async function copyText(text, label) {
+  const el = document.activeElement;
+  try { await navigator.clipboard.writeText(text); flash(el, "Copied"); }
+  catch (e) { const t = $("#notes"); if (t && label !== "draft") { t.value = text; t.select(); flash(el, "Select all and copy"); } }
+}
+function flash(el, msg) { if (!el || !el.tagName) return; const o = el.textContent; el.textContent = msg; setTimeout(() => { el.textContent = o; }, 1400); }
+
+/* ════════════════════════ Library / walkthrough ════════════════════════ */
+let previewFlow = null;
+const currentFlow = () => (state.flowId === "__preview__" ? previewFlow : state.byId.get(state.flowId));
+function resetWalk() { const f = currentFlow(); state.history = []; state.visited = new Set(); state.stepId = f ? f.steps[0].id : null; if (f) state.visited.add(state.stepId); }
+
+function haystack(f) { return [f.id, f.title, f.system, f.module, f.summary, ...f.roles, ...f.trigger, ...f.outcome, ...f.steps.flatMap((s) => [s.title, s.screen?.id, s.screen?.name, ...arr(s.actions)])].join(" ").toLowerCase(); }
+
+function viewLibrary() {
+  if (!state.flows.length && state.flowId !== "__preview__") return `<div class="panel"><h2>The library is empty</h2><p class="muted">Flows appear here once someone contributes one. Start from the Contribute tab: fill in the template, convert it, and add it.</p><div class="row"><button class="btn primary" data-goto="contribute">Contribute the first flow</button></div></div>`;
+  if (!state.flowId) state.flowId = state.flows[0]?.id || null, resetWalk();
+  const q = state.query.trim().toLowerCase();
+  const groups = {};
+  state.flows.filter((f) => !q || haystack(f).includes(q)).forEach((f) => (groups[f.system] ||= []).push(f));
+  const list = Object.entries(groups).map(([sys, fs]) => `<div class="grp"><h4>${h(sys)}</h4>${fs.map((f) => `
+      <button class="fl" data-flow="${h(f.id)}" aria-current="${state.flowId === f.id}"><span>${h(f.title)}</span><small>${f.steps.length} steps · ${h(contribLabel(f.id))}</small></button>`).join("")}</div>`).join("") || `<p class="small muted">No flow matches “${h(state.query)}”.</p>`;
+  return `<div class="lib">
+    <aside class="flowlist"><input id="libq" type="search" placeholder="Search screens, states, roles…" value="${h(state.query)}" aria-label="Search flows">${list}</aside>
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0">${flowDetail()}</div>
+  </div>`;
+}
+
+function contribLabel(fid) {
+  const d = state.docs.get(fid); if (!d) return "preview";
+  if (d.sample) return "seeded example";
+  if (!d.contributor) return "anonymous";
+  if (d.contributor === state.uid) return "you";
+  return state.names[d.contributor] || "a teammate";
+}
+
+function flowDetail() {
+  const f = currentFlow(); if (!f) return "";
+  const A = state.analysis;
+  const inbound = A.handoffs.filter((m) => m.to.flow === f.id && m.to.step === null);
+  const outbound = A.handoffs.filter((m) => m.from.flow === f.id && m.from.step === null);
+  const gapsIn = A.gaps.filter((g) => g.neededBy.some((n) => n.flow === f.id && n.step === null));
+  const preview = state.flowId === "__preview__";
+  const d = state.docs.get(f.id);
+  return `
+  ${preview ? `<div class="banner">Preview of your draft. It isn't in the library yet. <button class="linkish" data-goto="contribute">Back to the draft</button></div>` : ""}
+  <header class="flowhead">
+    <span class="eyebrow">${h(f.id)}${d ? ` · v${d.version || 1}` : ""}</span>
+    <h2>${h(f.title)}</h2>
+    <p class="muted" style="margin:0;max-width:72ch">${h(f.summary)}</p>
+    <div class="meta"><span>System <b>${h(f.system)}</b></span>${f.module ? `<span>Module <b>${h(f.module)}</b></span>` : ""}<span>From <b>${h(contribLabel(f.id))}</b></span>${f.source ? `<span>Source <b>${h(f.source)}</b></span>` : ""}</div>
+    <div class="row">${f.roles.map((r) => `<span class="chip">${h(r)}</span>`).join("")}</div>
+  </header>
+  <div class="ends">
+    <div class="end-box"><span class="lbl">Starts when</span>
+      <div class="row">${f.trigger.map((t) => `<span class="chip state ${gapsIn.some((g) => g.state === parseState(t)?.key) ? "gap" : ""}">${h(t)}</span>`).join("") || `<span class="muted">Anytime</span>`}</div>
+      ${inbound.length ? `<div>Comes from ${inbound.map((m) => `<button class="linkish" data-jumpflow="${h(m.from.flow)}">${h(flowTitle(m.from.flow))}</button>`).join(", ")}</div>` : ""}
+      ${gapsIn.length ? `<div class="small" style="color:var(--gap)">No flow describes how to reach ${gapsIn.map((g) => h(g.state)).join(", ")} yet.</div>` : ""}
+    </div>
+    <div class="end-box"><span class="lbl">Ends with</span>
+      <div class="row">${f.outcome.map((t) => `<span class="chip state">${h(t)}</span>`).join("") || `<span class="muted">—</span>`}</div>
+      ${outbound.length ? `<div>Continues in ${[...new Map(outbound.map((m) => [m.to.flow, m])).values()].map((m) => `<button class="linkish" data-jumpflow="${h(m.to.flow)}">${h(flowTitle(m.to.flow))}</button>`).join(", ")}</div>` : ""}
+    </div>
+  </div>
+  <div class="walk"><div class="diagram" id="diagram"><div id="svg"><p class="small muted">Drawing the flow…</p></div></div><div id="card">${stepCard()}</div></div>`;
+}
+
+function handoffsAt(f, s) {
+  const A = state.analysis;
+  const keys = arr(s.produces).map((x) => parseState(x)?.key).filter(Boolean);
+  if (s.next === END) f.outcome.forEach((x) => { const k = parseState(x)?.key; if (k && !keys.includes(k)) keys.push(k); });
+  const out = [];
+  keys.forEach((k) => (A.consumers.get(k) || []).forEach((c) => { if (c.flow !== f.id) out.push({ state: k, flow: c.flow, step: c.step }); }));
+  const req = arr(s.requires).map((x) => parseState(x)?.key).filter(Boolean);
+  const inc = [];
+  req.forEach((k) => (A.producers.get(k) || []).forEach((p) => { if (p.flow !== f.id) inc.push({ state: k, flow: p.flow, step: p.step }); }));
+  const gaps = req.filter((k) => !A.producers.has(k));
+  return { out, inc, gaps };
+}
+
+function stepCard() {
+  const f = currentFlow(); if (!f) return "";
+  const trail = (state.journey.length || state.history.length) ? `<div class="trail">${state.journey.map((j, i) => `<button class="jr" data-journey="${i}">${h(flowTitle(j.flow))}</button> ›`).join(" ")} ${state.history.map((id) => `<button data-jump="${h(id)}">${h(f.steps.find((s) => s.id === id)?.title)}</button>`).join(" › ")}</div>` : "";
+  if (state.stepId === END) {
+    const outs = []; f.outcome.forEach((x) => { const k = parseState(x)?.key; (state.analysis.consumers.get(k) || []).forEach((c) => c.flow !== f.id && outs.push({ state: k, flow: c.flow, step: c.step })); });
+    return `<div class="card"><span class="eyebrow">Flow complete</span><div class="prog"><i style="width:100%"></i></div><h3>${h(f.title)}: done</h3>
+      <p style="margin:0">${state.visited.size} of ${f.steps.length} steps on this path. The system now has ${f.outcome.map((o) => `<span class="chip state">${h(o)}</span>`).join(" ") || "no declared outcome"}.</p>
+      ${outs.length ? `<div class="handoff"><span class="lbl">Continue the journey</span>${dedupe(outs).map((o) => `<div><button class="linkish" data-handoff="${h(o.flow)}" data-hstep="${h(o.step || "")}">${h(flowTitle(o.flow))} →</button> <span class="small muted">picks up ${h(o.state)}</span></div>`).join("")}</div>` : `<p class="small muted" style="margin:0">No contributed flow continues from here yet.</p>`}
+      ${trail}<div class="nav"><button class="btn" data-act="back">← Back</button><button class="btn primary" data-act="restart">Start over</button></div></div>`;
+  }
+  const s = f.steps.find((x) => x.id === state.stepId), i = f.steps.indexOf(s), dec = s.type === "decision";
+  const ho = handoffsAt(f, s);
+  const pct = Math.round((state.visited.size / f.steps.length) * 100);
+  const body = stepBody(s);
+  const hand = (ho.inc.length || ho.gaps.length ? `<div class="handoff"><span class="lbl">Waits for another flow</span>${dedupe(ho.inc).map((o) => `<div>${h(o.state)} comes from <button class="linkish" data-handoff="${h(o.flow)}" data-hstep="${h(o.step || "")}">${h(flowTitle(o.flow))}</button></div>`).join("")}${ho.gaps.map((g) => `<div style="color:var(--gap)">${h(g)}: no flow describes this yet</div>`).join("")}</div>` : "")
+    + (ho.out.length ? `<div class="handoff"><span class="lbl">Hands off</span>${dedupe(ho.out).map((o) => `<div>${h(o.state)} → <button class="linkish" data-handoff="${h(o.flow)}" data-hstep="${h(o.step || "")}">${h(flowTitle(o.flow))}</button></div>`).join("")}</div>` : "");
+  const nav = dec
+    ? `<div class="sec"><h4>Choose a path</h4>${s.branches.map((b, n) => `<button class="branch" data-go="${h(b.next)}"><b>${h(b.label)} <span class="mono small muted">[${n + 1}]</span></b><span>→ ${h(b.next === END ? "Done" : f.steps.find((x) => x.id === b.next)?.title)}${b.note ? ` · ${h(b.note)}` : ""}</span></button>`).join("")}</div>
+       <div class="nav"><button class="btn" data-act="back" ${state.history.length ? "" : "disabled"}>← Back</button></div>`
+    : `<div class="nav"><button class="btn" data-act="back" ${state.history.length ? "" : "disabled"}>← Back</button><button class="btn primary" data-go="${h(s.next)}">${s.next === END ? "Finish" : "Next →"}</button></div>`;
+  return `<div class="card ${dec ? "decision" : ""}">
+    <div class="row" style="justify-content:space-between"><span class="eyebrow">Step ${i + 1} of ${f.steps.length}${dec ? " · decision" : ""}</span><span class="mono small muted">← → keys</span></div>
+    <div class="prog"><i style="width:${pct}%"></i></div>
+    <h3>${h(s.title)}</h3>${body}${hand}${nav}${trail}</div>`;
+}
+const uniqFlows = (xs) => [...new Map(xs.map((x) => [x.flow, x])).values()];
+const dedupe = (xs) => [...new Map(xs.map((x) => [x.flow + "|" + x.state, x])).values()];
+
+function stepBody(s) {
+  let o = `<div class="who">${s.actor ? `<span class="actor">${h(s.actor)}</span>` : ""}${s.screen?.id ? `<span class="screen">${h(s.screen.id)} ${h(s.screen.name)}</span>` : ""}</div>`;
+  if (s.description) o += `<p style="margin:0">${h(s.description)}</p>`;
+  if (arr(s.actions).length) o += `<div class="sec"><h4>Do</h4><ol class="acts">${arr(s.actions).map((a) => `<li>${h(a)}</li>`).join("")}</ol></div>`;
+  if (arr(s.inputs).length) o += `<div class="sec"><h4>Inputs</h4><div class="tbl"><table><thead><tr><th>Field</th><th>Example</th><th>Maps to</th><th>Note</th></tr></thead><tbody>${arr(s.inputs).map((x) => `<tr><td>${h(x.field)}${x.required ? ' <span style="color:var(--gap)" title="required">*</span>' : ""}</td><td class="mono">${h(x.example)}</td><td class="mono">${h(x.maps)}</td><td>${h(x.note)}</td></tr>`).join("")}</tbody></table></div></div>`;
+  if (s.expected) o += `<div class="sec"><h4>You should see</h4><p class="expected">${h(s.expected)}</p></div>`;
+  if (arr(s.produces).length) o += `<div class="row">${arr(s.produces).map((p) => `<span class="chip state">sets ${h(p)}</span>`).join("")}</div>`;
+  if (arr(s.errors).length) o += `<div class="sec"><h4>Common errors</h4><ul class="notes">${arr(s.errors).map((e) => `<li><span class="code">${h(e.code)}</span>${h(e.message)}<br><span class="muted">Fix: ${h(e.fix)}</span></li>`).join("")}</ul></div>`;
+  if (arr(s.tips).length) o += `<div class="sec"><h4>Tips</h4><ul class="notes">${arr(s.tips).map((t) => `<li>${h(t)}</li>`).join("")}</ul></div>`;
+  return o;
+}
+
+function stepTo(id) { if (state.stepId) state.history.push(state.stepId); state.stepId = id; if (id !== END) state.visited.add(id); refreshWalk(); }
+function refreshWalk() { const c = $("#card"); if (c) c.innerHTML = stepCard(); drawFlowDiagram(); }
+function openFlow(id, stepId, keepJourney) {
+  if (keepJourney && state.flowId && state.flowId !== "__preview__") state.journey.push({ flow: state.flowId, step: state.stepId, history: state.history.slice(), visited: [...state.visited] });
+  if (!keepJourney) state.journey = [];
+  state.flowId = id; resetWalk();
+  if (stepId) { const f = currentFlow(); if (f?.steps.some((s) => s.id === stepId)) { state.stepId = stepId; state.visited.add(stepId); } }
+  if (state.tab !== "library") go("library"); else render();
+}
+
+/* ════════════════════════ Mermaid ════════════════════════ */
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const mm = (t) => String(t ?? "").replace(/"/g, "#quot;").replace(/[<>]/g, "").replace(/\n/g, " ");
+function initMermaid() {
+  mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base",
+    flowchart: { htmlLabels: true, curve: "basis", nodeSpacing: 26, rankSpacing: 34 },
+    themeVariables: { fontFamily: css("--font-body"), fontSize: "13px", primaryColor: css("--surface"), primaryTextColor: css("--ink"),
+      primaryBorderColor: css("--muted"), lineColor: css("--muted"), edgeLabelBackground: css("--surface"), tertiaryColor: css("--sunken"), clusterBkg: css("--sunken"), clusterBorder: css("--line") } });
+}
+let seq = 0;
+async function renderMermaid(target, src) {
+  if (!window.mermaid) { target.innerHTML = `<p class="small muted">The diagram library didn't load. Everything else still works.</p>`; return null; }
+  initMermaid();
+  const my = ++seq; target.dataset.seq = my;
+  try {
+    const { svg } = await mermaid.render("mm" + my, src);
+    if (target.dataset.seq != my || !target.isConnected) return null;
+    target.innerHTML = svg; return target;
+  } catch (e) { target.innerHTML = `<p class="small muted">Couldn't draw this diagram: ${h(e.message || e)}</p>`; return null; }
+}
+
+function flowMermaid(f) {
+  const idx = new Map(f.steps.map((s, i) => [s.id, "n" + i])); idx.set(END, "nEnd");
+  const L = ["flowchart TD", '  nStart(["Start"])'];
+  f.steps.forEach((s) => {
+    const lbl = `${s.actor ? `<small>${mm(s.actor)}</small><br/>` : ""}${mm(s.title)}`;
+    L.push(s.type === "decision" ? `  ${idx.get(s.id)}{"${lbl}"}` : `  ${idx.get(s.id)}["${lbl}"]`);
+  });
+  L.push('  nEnd(["Done"])', `  nStart --> n0`);
+  f.steps.forEach((s) => {
+    if (s.type === "decision") s.branches.forEach((b) => L.push(`  ${idx.get(s.id)} -->|"${mm(b.label)}"| ${idx.get(b.next)}`));
+    else L.push(`  ${idx.get(s.id)} --> ${idx.get(s.next)}`);
+  });
+  // external handoffs as small side nodes
+  let x = 0;
+  f.steps.forEach((s) => {
+    const ho = handoffsAt(f, s);
+    dedupe(ho.out).forEach((o) => { const id = "x" + x++; L.push(`  ${id}[/"→ ${mm(flowTitle(o.flow))}"/]`, `  ${idx.get(s.id)} -.-> ${id}`, `  class ${id} ext`); });
+    dedupe(ho.inc).forEach((o) => { const id = "x" + x++; L.push(`  ${id}[/"${mm(flowTitle(o.flow))} →"/]`, `  ${id} -.-> ${idx.get(s.id)}`, `  class ${id} ext`); });
+    ho.gaps.forEach((g) => { const id = "x" + x++; L.push(`  ${id}[/"? ${mm(g)}"/]`, `  ${id} -.-> ${idx.get(s.id)}`, `  class ${id} gapn`); });
+  });
+  const dec = f.steps.map((s, i) => (s.type === "decision" ? "n" + i : null)).filter(Boolean);
+  L.push(`  classDef decision fill:${css("--decision-soft")},stroke:${css("--decision")},color:${css("--ink")}`);
+  L.push(`  classDef ext fill:${css("--accent-soft")},stroke:${css("--accent")},color:${css("--accent")},stroke-dasharray:4 3`);
+  L.push(`  classDef gapn fill:${css("--gap-soft")},stroke:${css("--gap")},color:${css("--gap")},stroke-dasharray:4 3`);
+  L.push(`  classDef visited stroke:${css("--accent")},stroke-width:2px`);
+  L.push(`  classDef current fill:${css("--accent")},stroke:${css("--accent")},color:${css("--on-accent")},stroke-width:3px`);
+  if (dec.length) L.push(`  class ${dec.join(",")} decision`);
+  const vis = [...state.visited].filter((id) => id !== state.stepId).map((id) => idx.get(id)).filter(Boolean);
+  if (vis.length) L.push(`  class ${vis.join(",")} visited`);
+  L.push(`  class ${idx.get(state.stepId) || "nEnd"} current`);
+  return L.join("\n");
+}
+
+async function drawFlowDiagram() {
+  const f = currentFlow(), box = $("#svg"); if (!f || !box) return;
+  const done = await renderMermaid(box, flowMermaid(f)); if (!done) return;
+  box.querySelectorAll("g.node").forEach((g) => {
+    const m = /flowchart-(n\d+)-/.exec(g.id); if (!m) return;
+    g.addEventListener("click", () => { const s = f.steps[+m[1].slice(1)]; if (s) stepTo(s.id); });
+  });
+  const cur = box.querySelector(`g.node[id^="flowchart-n${f.steps.findIndex((s) => s.id === state.stepId)}-"]`), d = $("#diagram");
+  if (cur && d && d.scrollHeight > d.clientHeight) { const t = cur.getBoundingClientRect().top - d.getBoundingClientRect().top + d.scrollTop; d.scrollTo({ top: t - d.clientHeight / 2 }); }
+}
+
+/* ════════════════════════ System map ════════════════════════ */
+function viewMap() {
+  const A = state.analysis;
+  if (!state.flows.length) return `<div class="panel"><h2>Nothing to map yet</h2><p class="muted">The map draws itself from contributed flows: each flow is a box, and a line appears when one flow produces the state another one starts from.</p></div>`;
+  const lc = [...A.entities.entries()].sort().map(([ek, vals]) => `
+    <div class="panel lc"><h3 class="mono" style="font-size:14px">${h(ek)}</h3><ol>${vals.map((v) => `
+      <li><span class="v ${v.producers.length ? "" : "gap"}">${h(v.value)}</span>
+      <span>${v.producers.length ? `set by ${uniqFlows(v.producers).map((p) => `<button class="linkish" data-jumpflow="${h(p.flow)}" data-hstep="${h(p.step || "")}">${h(flowTitle(p.flow))}</button>`).join(", ")}` : `<span style="color:var(--gap)">no flow sets this yet</span>`}${v.consumers.length ? `<br><span class="muted">used by ${uniqFlows(v.consumers).map((c) => h(flowTitle(c.flow))).join(", ")}</span>` : ""}</span></li>`).join("")}</ol></div>`).join("");
+  return `
+  <section class="panel">
+    <div class="row" style="justify-content:space-between"><h2>How the contributed flows connect</h2>
+      <div class="legend"><span><i class="sw" style="background:var(--surface)"></i>flow (click to open)</span><span><i class="sw" style="background:var(--gap-soft);border-color:var(--gap)"></i>missing knowledge</span><span>line label = the state handed over</span></div></div>
+    <p class="small muted" style="margin:0">Nobody drew this map. It's computed from each flow's trigger, outcome and step states, and it grows with every contribution.</p>
+    <div class="mapbox" id="mapbox"><p class="small muted">Drawing the map…</p></div>
+  </section>
+  <h2 style="font-size:19px">Entity lifecycles</h2>
+  <p class="small muted" style="margin:-10px 0 0">Every state any flow mentions, and which flow moves the entity into it.</p>
+  <div class="lifecycles">${lc}</div>`;
+}
+
+async function drawMap() {
+  const A = state.analysis, box = $("#mapbox"); if (!box) return;
+  const fid = new Map(state.flows.map((f, i) => [f.id, "f" + i]));
+  const L = ["flowchart LR"];
+  const bySys = {}; state.flows.forEach((f) => (bySys[f.system] ||= []).push(f));
+  Object.entries(bySys).forEach(([sys, fs], i) => {
+    L.push(`  subgraph s${i}["${mm(sys)}"]`);
+    fs.forEach((f) => L.push(`    ${fid.get(f.id)}["<b>${mm(f.title)}</b><br/><small>${f.steps.length} steps · ${mm(f.roles.join(", "))}</small>"]`));
+    L.push("  end");
+  });
+  const edges = new Map();
+  A.handoffs.forEach((m) => { const k = m.from.flow + ">" + m.to.flow; if (!edges.has(k)) edges.set(k, []); if (!edges.get(k).includes(m.state)) edges.get(k).push(m.state); });
+  edges.forEach((states, k) => { const [a, b] = k.split(">"); L.push(`  ${fid.get(a)} -->|"${mm(states.join(" / "))}"| ${fid.get(b)}`); });
+  A.gaps.forEach((g, i) => {
+    L.push(`  g${i}[/"? ${mm(g.state)}<br/><small>no flow yet</small>"/]`);
+    new Set(g.neededBy.map((n) => n.flow)).forEach((fl) => L.push(`  g${i} -.-> ${fid.get(fl)}`));
+    L.push(`  class g${i} gapn`);
+  });
+  L.push(`  classDef gapn fill:${css("--gap-soft")},stroke:${css("--gap")},color:${css("--gap")},stroke-dasharray:4 3`);
+  const done = await renderMermaid(box, L.join("\n")); if (!done) return;
+  const svg = box.querySelector("svg"), vb = svg?.viewBox?.baseVal;
+  if (vb && vb.width) { svg.style.maxWidth = "none"; svg.setAttribute("width", Math.round(vb.width)); svg.setAttribute("height", Math.round(vb.height)); }
+  box.querySelectorAll("g.node").forEach((g) => {
+    const m = /flowchart-(f\d+|g\d+)-/.exec(g.id); if (!m) return;
+    g.addEventListener("click", () => {
+      if (m[1][0] === "f") openFlow(state.flows[+m[1].slice(1)].id);
+      else { prefillGap(A.gaps[+m[1].slice(1)]); }
+    });
+  });
+}
+
+/* ════════════════════════ Mappings & gaps ════════════════════════ */
+function viewMappings() {
+  const A = state.analysis;
+  const types = [["all", "All"], ["review", "Needs review"], ["handoff", "Handoffs"], ["alias", "Aliases"], ["field", "Fields"]];
+  const list = A.mappings.filter((m) => state.mfilter === "all" || (state.mfilter === "review" ? m.status === "review" : m.type === state.mfilter))
+    .sort((a, b) => (a.status === "review" ? -1 : 0) - (b.status === "review" ? -1 : 0));
+  const canDecide = state.canWrite !== false;
+  const items = list.map((m) => `
+    <div class="m"><span class="type ${m.type}">${m.type}</span>
+      <div><div class="t">${h(m.title)}</div><div class="d">${h(m.detail)}</div></div>
+      <div class="act"><span class="conf ${m.confidence}">${m.confidence} confidence</span>
+        ${m.status === "review" ? (canDecide ? `<div class="row"><button class="btn sm" data-decide="accepted" data-key="${h(m.key)}">Accept</button><button class="btn sm" data-decide="rejected" data-key="${h(m.key)}">Reject</button></div>` : `<span class="decided">needs review</span>`)
+          : m.status === "auto" ? `<span class="decided acc">auto-applied</span>${canDecide ? `<button class="linkish small" data-decide="rejected" data-key="${h(m.key)}">Reject</button>` : ""}`
+          : `<span class="decided ${m.status === "accepted" ? "acc" : "rej"}">${m.status}</span>${canDecide ? `<button class="linkish small" data-undecide="${h(m.key)}">Undo</button>` : ""}`}
+      </div></div>`).join("") || `<p class="small muted">Nothing in this group.</p>`;
+  const gaps = A.gaps.map((g, i) => `
+    <div class="gapcard"><b class="mono">${h(g.state)}</b>
+      <span class="small">Needed by ${[...new Set(g.neededBy.map((n) => n.flow))].map((f) => `<button class="linkish" data-jumpflow="${h(f)}">${h(flowTitle(f))}</button>`).join(", ")}, but nobody has described how the system gets there.</span>
+      <div><button class="btn sm" data-gap="${i}">Contribute this flow</button></div></div>`).join("") || `<p class="small muted">No gaps: every state a flow waits for is produced by another flow.</p>`;
+  const ends = A.openEnds.map((o) => `<li><span class="mono">${h(o.state)}</span> <span class="muted">from ${o.producedBy.map((p) => h(flowTitle(p.flow))).join(", ")}</span></li>`).join("");
+  const screens = [...A.screens.values()].sort((a, b) => a.id.localeCompare(b.id)).map((sc) => `<tr><td class="mono">${h(sc.id)}</td><td>${h(sc.canonical)}${sc.names.size > 1 ? `<br><span class="small" style="color:var(--alias)">also “${[...sc.names.keys()].filter((n) => n !== sc.canonical).map(h).join("”, “")}”</span>` : ""}</td><td>${[...new Set(sc.uses.map((u) => u.flow))].map((f) => h(flowTitle(f))).join("<br>")}</td></tr>`).join("");
+  return `
+  <div class="mgrid">
+    <section class="panel">
+      <div class="row" style="justify-content:space-between"><h2>Auto-defined mappings</h2><span class="small muted">${A.mappings.length} found</span></div>
+      <p class="small muted" style="margin:0">Computed from every contribution. High-confidence matches apply automatically; the rest wait for a person to accept or reject. Decisions are shared with everyone.</p>
+      <div class="filters">${types.map(([k, l]) => `<button class="btn sm" data-mfilter="${k}" aria-pressed="${state.mfilter === k}">${l}</button>`).join("")}</div>
+      <div class="mlist">${items}</div>
+    </section>
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+      <section class="panel"><h2>Wanted: missing knowledge</h2><p class="small muted" style="margin:0">States some flow waits for, that no contributed flow produces yet.</p>${gaps}</section>
+      ${ends ? `<section class="panel"><h3>Open ends</h3><p class="small muted" style="margin:0">Outcomes that no flow picks up yet. Either the process really ends here, or the next flow hasn't been contributed.</p><ul class="notes">${ends}</ul></section>` : ""}
+    </div>
+  </div>
+  <section class="panel"><h2>Screen catalog</h2><p class="small muted" style="margin:0">One row per screen ID, merged across all contributions.</p>
+    <div class="tbl"><table class="cat-tbl"><thead><tr><th>Screen</th><th>Name</th><th>Used in</th></tr></thead><tbody>${screens}</tbody></table></div></section>`;
+}
+
+async function decide(key, decision) {
+  const doc = { key, decision, by: state.uid, at: new Date().toISOString() };
+  try {
+    if (state.db) {
+      const ref = state.db.collection("mappings").doc(mapDocId(key));
+      if (decision === null) await ref.delete(); else await ref.set(doc);
+    } else { if (decision === null) delete state.decisions[key]; else state.decisions[key] = doc; rebuild(); render(); }
+  } catch (e) { if (e.code === "invalid_argument") { state.canWrite = false; render(); } }
+}
+const mapDocId = (key) => "m-" + Array.from(new TextEncoder().encode(key)).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 180);
+
+function prefillGap(g) {
+  const needed = [...new Set(g.neededBy.map((n) => flowTitle(n.flow)))].join(", ");
+  state.notes = TEMPLATE_MD.replace("## 4. When it's done\nWhat has changed in the system?", `## 4. When it's done\nWhat has changed in the system?\n${g.state}   <- the library is missing this (needed by: ${needed})`);
+  go("contribute");
+}
+
+/* ════════════════════════ Events ════════════════════════ */
+$("#view").addEventListener("click", (e) => {
+  const t = e.target.closest("button, [data-flow]"); if (!t) return;
+  const d = t.dataset;
+  if (d.goto) go(d.goto);
+  else if (d.flow) openFlow(d.flow);
+  else if (d.jumpflow) openFlow(d.jumpflow, d.hstep || null, false);
+  else if (d.handoff) openFlow(d.handoff, d.hstep || null, true);
+  else if (d.go) stepTo(d.go);
+  else if (d.act === "back") { if (state.history.length) { state.stepId = state.history.pop(); refreshWalk(); } }
+  else if (d.act === "restart") { resetWalk(); refreshWalk(); }
+  else if (d.jump) { const k = state.history.indexOf(d.jump); state.history = state.history.slice(0, k); state.stepId = d.jump; refreshWalk(); }
+  else if (d.journey !== undefined) {
+    const j = state.journey[+d.journey]; state.journey = state.journey.slice(0, +d.journey);
+    state.flowId = j.flow; state.stepId = j.step; state.history = j.history; state.visited = new Set(j.visited); render();
+  }
+  else if (d.dl) offerFile(d.dl);
+  else if (d.copy) copyText(d.copy === "template" ? TEMPLATE_MD : aiPrompt(state.notes.trim() === TEMPLATE_MD.trim() ? "" : state.notes), d.copy);
+  else if (d.mfilter) { state.mfilter = d.mfilter; render(); }
+  else if (d.decide) decide(d.key, d.decide);
+  else if (d.undecide) decide(d.undecide, null);
+  else if (d.gap !== undefined) prefillGap(state.analysis.gaps[+d.gap]);
+});
+$("#view").addEventListener("input", (e) => {
+  if (e.target.id === "libq") {
+    state.query = e.target.value;
+    const pos = e.target.selectionStart; render();
+    const q = $("#libq"); if (q) { q.focus(); q.setSelectionRange(pos, pos); }
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (state.tab !== "library" || e.target.matches("input, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
+  const f = currentFlow(); if (!f) return;
+  const s = state.stepId !== END && f.steps.find((x) => x.id === state.stepId);
+  if (e.key === "ArrowLeft" && state.history.length) { state.stepId = state.history.pop(); refreshWalk(); }
+  else if (e.key === "ArrowRight" && s && s.type !== "decision") stepTo(s.next);
+  else if (/^[1-9]$/.test(e.key) && s?.type === "decision" && s.branches[+e.key - 1]) stepTo(s.branches[+e.key - 1].next);
+  else return;
+  e.preventDefault();
+});
+const redraw = () => { if (state.tab === "library") drawFlowDiagram(); if (state.tab === "map") drawMap(); };
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", redraw);
+new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+/* ════════════════════════ Example notes ════════════════════════ */
+const EXAMPLE_NOTES = `# Flow contribution
+
+## 1. What is this flow?
+- Name: Import the daily bank statement
+- System / module: Finance (FIN), Cash Management
+- Who does it (roles): Treasury Clerk
+- Where you learned it: my team lead showed me; FIN user guide 4.2 ch.7
+
+## 2. Before you start
+The bank's MT940 file for yesterday is in the shared folder \\\\fin\\bank\\in.
+
+## 3. Steps
+1. Open FIN-0400 "Bank Statement Import" from menu Cash > Bank Statements > Import.
+2. Pick the bank account, click "Browse", choose the MT940 file, click "Upload".
+3. The screen shows opening and closing balance. If they match the bank portal, click "Confirm import". Otherwise click "Reject" and email the bank (we stop here).
+4. After confirming, the statement status shows "Imported".
+
+## 4. When it's done
+The statement is Imported and its payments can be matched to invoices.
+
+## 5. Errors and tips
+- F-311 "Duplicate statement" -> it was already imported, nothing to do.
+- Tip: upload before 10:00, AR starts matching at 10.
+`;
+
+/* ════════════════════════ Boot ════════════════════════ */
+const fromHash = location.hash.slice(1);
+if (TABS.some(([k]) => k === fromHash)) state.tab = fromHash;
+render();
+
+(async () => {
+  const c = window.claude;
+  const use = (n) => (c && c.use ? c.use(n).catch(() => null) : Promise.resolve(null));
+  const [db, user, sample, downloads] = await Promise.all([use("db"), use("user"), use("sample"), use("downloads")]);
+  state.sample = sample; state.downloads = downloads; state.user = user;
+  if (user) {
+    try { state.uid = await user.id(); } catch (e) {}
+    try { const w = await user.can("data.write"); state.canWrite = w === false ? false : w; } catch (e) {}
+  }
+  if (!db) { state.mode = "local"; rebuild(); render(); return; }
+  state.db = db; state.mode = "shared";
+  let gotFlows = false;
+  db.collection("flows").onSnapshot(async (snap) => {
+    state.docs = new Map(snap.docs.map((d) => [d.id, d.data()]));
+    rebuild(); gotFlows = true;
+    await resolveNames();
+    if (state.tab !== "contribute") render(); else { renderShell(); checkDraft(); }
+  }, () => { state.mode = "local"; rebuild(); render(); });
+  db.collection("mappings").onSnapshot((snap) => {
+    state.decisions = {}; snap.docs.forEach((d) => { const v = d.data(); if (v?.key) state.decisions[v.key] = v; });
+    if (gotFlows) { rebuild(); if (state.tab !== "contribute") render(); else renderShell(); }
+  }, () => {});
+})();
+
+async function resolveNames() {
+  if (!state.user) return;
+  const ids = [...new Set([...state.docs.values()].map((d) => d.contributor).filter(Boolean))];
+  if (!ids.length) return;
+  try { const ps = await state.user.profiles(ids); ids.forEach((id) => { state.names[id] = ps[id]?.name || ""; }); } catch (e) {}
+}
+})();
+</script>
